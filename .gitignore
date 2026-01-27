@@ -1,0 +1,36 @@
+# === Python ===
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.env/
+.env
+.venv/
+venv/
+ENV/
+env/
+pip-wheel-metadata/
+
+# === Editor / SO ===
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# === Logs ===
+*.log
+
+# === Test / Coverage ===
+.coverage
+htmlcov/
+
+# === Mongo / Dumps ===
+*.bson
+*.json.bak
+
+# === Vercel ===
+.vercel/
+
+# === Cache ===
+.pytest_cache/
