@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from api.security import api_key_guard
 from api.magic import fetch_mtg_cards
-from api.mango import (contar_docs, buscar_docs, random_doc, buscar_por_id, get_meta)
+from api.mango import (buscar_por_nome, contar_docs, buscar_docs, random_doc, buscar_por_id, get_meta)
 from api.filters import (
     apply_sorcery_filters,
     apply_onepiece_filters,
@@ -148,6 +148,23 @@ def get_random_card(game: str):
         raise HTTPException(404, "Jogo não habilitado")
     data = random_doc(GAME_CONFIG[game]["collection"])
     return {"data": data}
+
+@app.get("/api/{game}/cards/lookup")
+def get_card_by_id_or_name(game: str, q: str):
+    if not has_game(game):
+        raise HTTPException(404, "Jogo não encontrado")
+    if not has_game_mahou(game):
+        raise HTTPException(404, "Jogo não habilitado")
+    collection = GAME_CONFIG[game]["collection"]
+    # tenta ID primeiro
+    card = buscar_por_nome(collection, q)
+    if card:
+        return {"data": card}
+    # fallback para nome
+    card = buscar_por_id(collection, q)
+    if not card:
+        raise HTTPException(404, "Card não encontrado")
+    return {"data": card}
 
 @app.get("/api/{game}/cards/{card_id}")
 def get_card_by_id(game: str, card_id: str):

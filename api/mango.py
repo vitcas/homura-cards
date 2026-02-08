@@ -1,4 +1,4 @@
-import os
+import os, re
 from dotenv import load_dotenv
 from pymongo import MongoClient
 from urllib.parse import quote_plus
@@ -65,6 +65,21 @@ def buscar_por_id(collec, card_id):
     # one-piece, riftbound, sorcery → usam id string normal
     else:
         query["id"] = card_id
+    return collections[collec].find_one(query, {"_id": 0})
+
+def buscar_por_nome(collec, name):
+    if not name or collec == "magic":
+        return None
+    field_map = {
+        "star-wars": "Title",
+    }
+    field = field_map.get(collec, "name")
+    query = {
+        field: {
+            "$regex": f"^{re.escape(name.strip())}$",
+            "$options": "i",
+        }
+    }
     return collections[collec].find_one(query, {"_id": 0})
 
 def contar_docs(collec, query):
