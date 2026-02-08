@@ -142,27 +142,23 @@ def get_cards_bulk(game: str, body: dict = Body(...)):
 
     return {"count": len(result), "data": result}
 
-@app.get("/api/{game}/cards/{card_id}")
-def get_card_by_id(game: str, card_id: str):
-    if not has_game(game):
-        raise HTTPException(404, "Jogo não encontrado")
-
-    if not has_game_mahou(game):
-        raise HTTPException(404, "Jogo não habilitado")
-
-    card = buscar_por_id(GAME_CONFIG[game]["collection"], card_id)
-    if not card:
-        raise HTTPException(404, "Card não encontrado")
-
-    return {"data": card}
-
 @app.get("/api/{game}/cards/random")
 def get_random_card(game: str):
     if not has_game_mahou(game):
         raise HTTPException(404, "Jogo não habilitado")
-
     data = random_doc(GAME_CONFIG[game]["collection"])
     return {"data": data}
+
+@app.get("/api/{game}/cards/{card_id}")
+def get_card_by_id(game: str, card_id: str):
+    if not has_game(game):
+        raise HTTPException(404, "Jogo não encontrado")
+    if not has_game_mahou(game):
+        raise HTTPException(404, "Jogo não habilitado")
+    card = buscar_por_id(GAME_CONFIG[game]["collection"], card_id)
+    if not card:
+        raise HTTPException(404, "Card não encontrado")
+    return {"data": card}
 
 @app.middleware("http")
 async def add_cache_headers(request: Request, call_next):
