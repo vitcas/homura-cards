@@ -2,7 +2,7 @@
 # interações com o banco de dados mongo
 import os, re
 from dotenv import load_dotenv
-from pymongo import MongoClient
+from pymongo import MongoClient, ASCENDING, DESCENDING
 from urllib.parse import quote_plus
 from datetime import datetime
 
@@ -31,6 +31,58 @@ collections = {
     "riftbound": db["riftbound_cards"],
     "gundam": db["gundam_cards"],
     "union-arena": db["unionarena_cards"]
+}
+
+SORTABLE_FIELDS = {
+    "one-piece": [
+        "id",
+        "code",
+        "name",
+        "cost",
+        "power",
+        "rarity"
+    ],
+    "yugioh": [
+        "id",
+        "name",
+        "level",
+        "atk",
+        "def"
+    ],
+    "fab": [
+        "id",
+        "name",
+        "cost",
+        "pitch",
+        "power"
+    ],
+    "sorcery": [
+        "id",
+        "name"
+    ],
+    "riftbound": [
+        "id",
+        "name",
+        "might",
+        "energyCost",
+        "powerCost"
+    ],
+    "star-wars": [
+        "Name",
+        "Set"
+    ],
+    "gundam": [
+        "id",
+        "code",
+        "name",
+        "cost",
+        "level"
+    ],
+    "union-arena": [
+        "id",
+        "code",
+        "name"
+    ]
 }
 
 def touch_collection(collection_name):
@@ -87,13 +139,13 @@ def buscar_por_nome(collec, name):
 def contar_docs(collec, query):
     return collections[collec].count_documents(query)
 
-def buscar_docs(collec, query, page, limit):
-    cursor = (
-        collections[collec]
-        .find(query, {"_id": 0})
-        .skip((page - 1) * limit)
-        .limit(limit)
-    )
+def buscar_docs(collec, query, page, limit, sort=None, order="asc"):
+    cursor = collections[collec].find(query, {"_id": 0})
+    allowed = SORTABLE_FIELDS.get(collec, [])
+    if sort and sort in allowed:
+        direction = ASCENDING if order.lower() == "asc" else DESCENDING
+        cursor = cursor.sort(sort, direction)
+    cursor = (cursor.skip((page - 1) * limit).limit(limit))
     return [format_card(collec, c) for c in cursor]
 
 def random_doc(collec):

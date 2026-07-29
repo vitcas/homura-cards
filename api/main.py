@@ -115,7 +115,14 @@ def get_mtg_cards(
         raise HTTPException(502, detail=f"Falha ao consultar Scryfall: {e}")
 
 @app.get("/api/{game}/cards")
-def get_cards(game: str, request: Request, limit: int = 25, page: int = 1):
+def get_cards(
+    game: str,
+    request: Request,
+    limit: int = 25,
+    page: int = 1,
+    sort: str | None = None,
+    order: str = "asc"
+    ):
     if not has_game(game):
         raise HTTPException(404, "Jogo não encontrado")
     if not has_game_mahou(game):
@@ -125,7 +132,13 @@ def get_cards(game: str, request: Request, limit: int = 25, page: int = 1):
     config = GAME_CONFIG[game]
     query = config["filter_fn"](request.query_params)
     total = contar_docs(config["collection"], query)
-    data = buscar_docs(config["collection"], query, page, limit)
+    data = buscar_docs(
+    config["collection"],
+    query,
+    page,
+    limit,
+    sort,
+    order)
     return paginated_response(data, page, limit, total)
 
 @app.post("/api/{game}/cards/bulk")
