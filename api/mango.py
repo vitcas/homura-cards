@@ -1,3 +1,5 @@
+# mango.py
+# interações com o banco de dados mongo
 import os, re
 from dotenv import load_dotenv
 from pymongo import MongoClient

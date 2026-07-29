@@ -1,3 +1,5 @@
+# magic.py
+# possui toda logica relacionada ao jogo mtg
 import math
 import requests
 
