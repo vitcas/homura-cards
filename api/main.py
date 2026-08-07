@@ -1,27 +1,13 @@
 # main.py
-import os, math, requests
+import math, requests
 from fastapi import FastAPI, Depends, HTTPException, Request, Body
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
 from api.security import api_key_guard
 from api.magic import fetch_mtg_cards
 from api.mango import (buscar_por_nome, contar_docs, buscar_docs, random_doc, buscar_por_id, get_meta)
-from api.filters import (
-    apply_sorcery_filters,
-    apply_onepiece_filters,
-    apply_riftbound_filters,
-    apply_fab_filters,
-    apply_yugioh_filters,
-    apply_swu_filters,
-    apply_unionarena_filters,
-    apply_gundam_filters
-)
+import api.filters as filters
 
-load_dotenv()
-
-APITCG_API_KEY = os.getenv("APITCG_API_KEY")
-
-app = FastAPI(title="Cards API", version="1.0.0", dependencies=[Depends(api_key_guard)])
+app = FastAPI(title="Cards API", version="1.0.1", dependencies=[Depends(api_key_guard)])
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -29,44 +15,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-GAME_SRC = {
-    "apitcg": ["pokemon", "dragon-ball-fusion"],
-    "mahou": ["digimon", "sorcery", "one-piece", "riftbound", "star-wars", "fab", "yugioh", "magic", "gundam", "union-arena"]
-}
-
 GAME_CONFIG = {
-    "sorcery": {"collection": "sorcery", "filter_fn": apply_sorcery_filters},
-    "one-piece": {"collection": "one-piece", "filter_fn": apply_onepiece_filters},
-    "riftbound": {"collection": "riftbound", "filter_fn": apply_riftbound_filters},
-    "fab": {"collection": "fab", "filter_fn": apply_fab_filters},
-    "yugioh": {"collection": "yugioh", "filter_fn": apply_yugioh_filters},
-    "star-wars": {"collection": "star-wars", "filter_fn": apply_swu_filters},
-    "gundam": {"collection": "gundam", "filter_fn": apply_gundam_filters},
-    "union-arena": {"collection": "union-arena", "filter_fn": apply_unionarena_filters},
+    "sorcery": {"collection": "sorcery", "filter_fn": filters.apply_sorcery_filters},
+    "pokemon": {"collection": "pokemon", "filter_fn": filters.apply_pokemon_filters},
+    "digimon": {"collection": "digimon", "filter_fn": filters.apply_digimon_filters},
+    "dragon-ball-fusion": {"collection": "dragon-ball-fusion", "filter_fn": filters.apply_dbs_filters},
+    "one-piece": {"collection": "one-piece", "filter_fn": filters.apply_onepiece_filters},
+    "riftbound": {"collection": "riftbound", "filter_fn": filters.apply_riftbound_filters},
+    "fab": {"collection": "fab", "filter_fn": filters.apply_fab_filters},
+    "yugioh": {"collection": "yugioh", "filter_fn": filters.apply_yugioh_filters},
+    "star-wars": {"collection": "star-wars", "filter_fn": filters.apply_swu_filters},
+    "gundam": {"collection": "gundam", "filter_fn": filters.apply_gundam_filters},
+    "union-arena": {"collection": "union-arena", "filter_fn": filters.apply_unionarena_filters},
+    "magic": { "collection": None, "filter_fn": None}
 }
 
 def has_game(game: str) -> bool:
-    return any(game in games for games in GAME_SRC.values())
-
-def has_game_mahou(game: str) -> bool:
-    return game in GAME_SRC["mahou"]
-
-def get_apitcg_cards(game: str, request: Request):
-    if not APITCG_API_KEY:
-        raise RuntimeError("APITCG_API_KEY não configurada")
-    url = f"https://apitcg.com/api/{game}/cards"
-    params = dict(request.query_params)
-    try:
-        r = requests.get(
-            url,
-            headers={"x-api-key": APITCG_API_KEY},
-            params=params,
-            timeout=10
-        )
-        r.raise_for_status()
-        return r.json()
-    except Exception as e:
-        raise HTTPException(502, detail=str(e))
+    return game in GAME_CONFIG
 
 def paginated_response(data, page, limit, total):
     return {
@@ -121,8 +86,6 @@ def get_cards(
     ):
     if not has_game(game):
         raise HTTPException(404, "Jogo não encontrado")
-    if not has_game_mahou(game):
-        return get_apitcg_cards(game, request)
     if game == "magic":
         return get_mtg_cards(limit=limit, page=page)
     config = GAME_CONFIG[game]
@@ -139,23 +102,16 @@ def get_cards(
 
 @app.post("/api/{game}/cards/bulk")
 def get_cards_bulk(game: str, body: dict = Body(...)):
-    if not has_game_mahou(game):
-        raise HTTPException(404, "Jogo não habilitado")
-
     ids = body.get("ids")
     if not isinstance(ids, list):
         raise HTTPException(400, "Envie um JSON com lista 'ids'")
-
     collection = GAME_CONFIG[game]["collection"]
     result = [buscar_por_id(collection, cid) for cid in ids]
     result = [c for c in result if c]
-
     return {"count": len(result), "data": result}
 
 @app.get("/api/{game}/cards/random")
 def get_random_card(game: str):
-    if not has_game_mahou(game):
-        raise HTTPException(404, "Jogo não habilitado")
     data = random_doc(GAME_CONFIG[game]["collection"])
     return {"data": data}
 
@@ -163,8 +119,6 @@ def get_random_card(game: str):
 def get_card_by_id_or_name(game: str, q: str):
     if not has_game(game):
         raise HTTPException(404, "Jogo não encontrado")
-    if not has_game_mahou(game):
-        raise HTTPException(404, "Jogo não habilitado")
     collection = GAME_CONFIG[game]["collection"]
     # tenta ID primeiro
     card = buscar_por_nome(collection, q)
@@ -180,8 +134,6 @@ def get_card_by_id_or_name(game: str, q: str):
 def get_card_by_id(game: str, card_id: str):
     if not has_game(game):
         raise HTTPException(404, "Jogo não encontrado")
-    if not has_game_mahou(game):
-        raise HTTPException(404, "Jogo não habilitado")
     card = buscar_por_id(GAME_CONFIG[game]["collection"], card_id)
     if not card:
         raise HTTPException(404, "Card não encontrado")

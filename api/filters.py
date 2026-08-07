@@ -134,3 +134,27 @@ def apply_swu_filters(args):
     if args.get("set"):
         q["Set"] = {"$regex": args["set"], "$options": "i"}
     return q
+
+def apply_digimon_filters(args):
+    q = {}
+    if args.get("id"):
+        q["id"] = int(args["id"])
+    if args.get("name"):
+        q["name"] = {"$regex": args["name"], "$options": "i"}
+    return q
+
+def apply_pokemon_filters(args):
+    q = {}
+    if args.get("id"):
+        q["id"] = int(args["id"])
+    if args.get("name"):
+        q["name"] = {"$regex": args["name"], "$options": "i"}
+    return q
+
+def apply_dbs_filters(args):
+    q = {}
+    if args.get("id"):
+        q["id"] = int(args["id"])
+    if args.get("name"):
+        q["name"] = {"$regex": args["name"], "$options": "i"}
+    return q
