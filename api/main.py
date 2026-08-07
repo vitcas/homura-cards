@@ -30,12 +30,8 @@ app.add_middleware(
 )
 
 GAME_SRC = {
-    "apitcg": ["digimon", "pokemon", "dragon-ball-fusion"],
-    "mahou": [
-        "sorcery", "one-piece", "riftbound",
-        "star-wars", "fab", "yugioh",
-        "magic", "gundam", "union-arena"
-    ]
+    "apitcg": ["pokemon", "dragon-ball-fusion"],
+    "mahou": ["digimon", "sorcery", "one-piece", "riftbound", "star-wars", "fab", "yugioh", "magic", "gundam", "union-arena"]
 }
 
 GAME_CONFIG = {
