@@ -24,6 +24,9 @@ db = client["tcg"]
 
 collections = {
     "yugioh": db["yugioh_cards"],
+    "digimon": db["digimon_cards"],
+    "pokemon": db["pokemon_cards"],
+    "dragon-ball-fusion": db["dragon-ball-fusion_cards"],
     "fab": db["fab_cards"],
     "one-piece": db["onepiece_cards"],
     "sorcery": db["sorcery_cards"],

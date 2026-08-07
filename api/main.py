@@ -1,11 +1,16 @@
 # main.py
-import math, requests
+import os, math, requests
+from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException, Request, Body
 from fastapi.middleware.cors import CORSMiddleware
 from api.security import api_key_guard
 from api.magic import fetch_mtg_cards
 from api.mango import (buscar_por_nome, contar_docs, buscar_docs, random_doc, buscar_por_id, get_meta)
 import api.filters as filters
+
+load_dotenv()
+
+API_KEY = os.getenv("API_KEY")
 
 app = FastAPI(title="Cards API", version="1.0.1", dependencies=[Depends(api_key_guard)])
 app.add_middleware(
