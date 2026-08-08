@@ -26,7 +26,7 @@ collections = {
     "yugioh": db["yugioh_cards"],
     "digimon": db["digimon_cards"],
     "pokemon": db["pokemon_cards"],
-    "dragon-ball-fusion": db["dragon-ball-fusion_cards"],
+    "dragon-ball-fusion": db["dragonball_cards"],
     "fab": db["fab_cards"],
     "one-piece": db["onepiece_cards"],
     "sorcery": db["sorcery_cards"],
@@ -172,6 +172,12 @@ def format_card(collec, card):
         return format_gundam(card)
     if collec == "union-arena":
         return format_uniona(card)
+    if collec == "digimon":
+        return format_digimon(card)
+    if collec == "pokemon":
+        return format_pokemon(card)
+    if collec == "dragon-ball-fusion":
+        return format_dbs(card)
     return card  # fallback
 
 def format_yugi(card):
@@ -411,3 +417,57 @@ def format_swu(card):
         formatted["id"] = f"{set_code}-{number}"
 
     return formatted
+
+def format_digimon(card):
+    return {
+        "id": card.get("id"),
+        "code": card.get("code"),
+        "name": card.get("name"),
+        "rarity": card.get("rarity"),
+        "type": card.get("type"),
+        "color": card.get("color"),
+        "level": card.get("level"),
+        "playCost": card.get("playCost"),
+        "evolutionCost": card.get("evolutionCost"),
+        "dp": card.get("dp"),
+        "digivolve": card.get("digivolve"),
+        "effect": card.get("effect"),
+        "securityEffect": card.get("securityEffect"),
+        "inheritedEffect": card.get("inheritedEffect"),
+        "images": card.get("images", {}),
+        "set": card.get("set", {}),
+        "variants": card.get("variants", [])
+    }
+
+def format_pokemon(card):
+
+    return {
+        "id": card.get("id"),
+        "code": card.get("code"),
+        "name": card.get("name"),
+        "rarity": card.get("rarity"),
+        "type": card.get("type"),
+        "images": card.get("images", {}),
+        "set": card.get("set", {}),
+        "pokemon": card.get("pokemon", {}),
+        "text": card.get("text", {}),
+        "variants": card.get("variants", [])
+    }
+
+def format_dbs(card):
+
+    return {
+        "id": card.get("id"),
+        "code": card.get("code"),
+        "name": card.get("name"),
+        "rarity": card.get("rarity"),
+        "type": card.get("type"),
+        "color": card.get("color"),
+        "cost": card.get("cost"),
+        "power": card.get("power"),
+        "characterTraits": card.get("characterTraits"),
+        "images": card.get("images", {}),
+        "set": card.get("set", {}),
+        "text": card.get("text", {}),
+        "variants": card.get("variants", [])
+    }

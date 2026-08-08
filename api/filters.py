@@ -137,24 +137,105 @@ def apply_swu_filters(args):
 
 def apply_digimon_filters(args):
     q = {}
+
     if args.get("id"):
-        q["id"] = int(args["id"])
+        q["id"] = {"$regex": args["id"], "$options": "i"}
+
+    if args.get("code"):
+        q["code"] = {"$regex": args["code"], "$options": "i"}
+
     if args.get("name"):
         q["name"] = {"$regex": args["name"], "$options": "i"}
+
+    if args.get("rarity"):
+        q["rarity"] = args["rarity"]
+
+    if args.get("type"):
+        q["type"] = {"$regex": args["type"], "$options": "i"}
+
+    if args.get("color"):
+        q["color"] = {"$regex": args["color"], "$options": "i"}
+
+    if args.get("set"):
+        q["set.set_code"] = args["set"]
+
     return q
 
 def apply_pokemon_filters(args):
     q = {}
+
     if args.get("id"):
-        q["id"] = int(args["id"])
+        q["id"] = {"$regex": args["id"], "$options": "i"}
+
+    if args.get("code"):
+        q["code"] = {"$regex": args["code"], "$options": "i"}
+
     if args.get("name"):
         q["name"] = {"$regex": args["name"], "$options": "i"}
+
+    if args.get("rarity"):
+        q["rarity"] = args["rarity"]
+
+    if args.get("type"):
+        q["type"] = {"$regex": args["type"], "$options": "i"}
+
+    if args.get("set"):
+        q["set.set_code"] = args["set"]
+
+    if args.get("card_type"):
+        q["pokemon.card_type"] = {
+            "$regex": args["card_type"],
+            "$options": "i"
+        }
+
+    if args.get("stage"):
+        q["pokemon.stage"] = {
+            "$regex": args["stage"],
+            "$options": "i"
+        }
+
+    if args.get("artist"):
+        q["pokemon.artist"] = {
+            "$regex": args["artist"],
+            "$options": "i"
+        }
+
     return q
 
 def apply_dbs_filters(args):
     q = {}
+
     if args.get("id"):
-        q["id"] = int(args["id"])
+        q["id"] = {"$regex": args["id"], "$options": "i"}
+
+    if args.get("code"):
+        q["code"] = {"$regex": args["code"], "$options": "i"}
+
     if args.get("name"):
         q["name"] = {"$regex": args["name"], "$options": "i"}
+
+    if args.get("rarity"):
+        q["rarity"] = args["rarity"]
+
+    if args.get("type"):
+        q["type"] = {"$regex": args["type"], "$options": "i"}
+
+    if args.get("color"):
+        q["color"] = {"$regex": args["color"], "$options": "i"}
+
+    if args.get("cost"):
+        q["cost"] = args["cost"]
+
+    if args.get("power"):
+        q["power"] = args["power"]
+
+    if args.get("characterTraits"):
+        q["characterTraits"] = {
+            "$regex": args["characterTraits"],
+            "$options": "i"
+        }
+
+    if args.get("set"):
+        q["set.set_code"] = args["set"]
+
     return q
