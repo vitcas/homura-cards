@@ -34,6 +34,7 @@ collections = {
     "riftbound": db["riftbound_cards"],
     "gundam": db["gundam_cards"],
     "lorcana": db["lorcana_cards"],
+    "vanguard": db["vanguard_cards"],
     "union-arena": db["unionarena_cards"]
 }
 
@@ -83,6 +84,11 @@ SORTABLE_FIELDS = {
         "level"
     ],
     "lorcana": [
+        "id",
+        "code",
+        "name"
+    ],
+    "vanguard": [
         "id",
         "code",
         "name"
