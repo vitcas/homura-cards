@@ -32,7 +32,7 @@ GAME_CONFIG = {
     "star-wars": {"collection": "star-wars", "filter_fn": filters.apply_swu_filters},
     "gundam": {"collection": "gundam", "filter_fn": filters.apply_gundam_filters},
     "lorcana": {"collection": "lorcana", "filter_fn": filters.apply_lorcana_filters},
-    "vanguard": {"collection": "vanguard", "filter_fn": filters.apply_vanguard_filters},
+    "cardfight-vanguard": {"collection": "vanguard", "filter_fn": filters.apply_vanguard_filters},
     "union-arena": {"collection": "union-arena", "filter_fn": filters.apply_unionarena_filters},
     "magic": { "collection": None, "filter_fn": None}
 }
