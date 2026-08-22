@@ -31,6 +31,7 @@ GAME_CONFIG = {
     "yugioh": {"collection": "yugioh", "filter_fn": filters.apply_yugioh_filters},
     "star-wars": {"collection": "star-wars", "filter_fn": filters.apply_swu_filters},
     "gundam": {"collection": "gundam", "filter_fn": filters.apply_gundam_filters},
+    "lorcana": {"collection": "lorcana", "filter_fn": filters.apply_lorcana_filters},
     "union-arena": {"collection": "union-arena", "filter_fn": filters.apply_unionarena_filters},
     "magic": { "collection": None, "filter_fn": None}
 }

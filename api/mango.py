@@ -33,6 +33,7 @@ collections = {
     "star-wars": db["swu_cards"],
     "riftbound": db["riftbound_cards"],
     "gundam": db["gundam_cards"],
+    "lorcana": db["lorcana_cards"],
     "union-arena": db["unionarena_cards"]
 }
 
@@ -80,6 +81,11 @@ SORTABLE_FIELDS = {
         "name",
         "cost",
         "level"
+    ],
+    "lorcana": [
+        "id",
+        "code",
+        "name"
     ],
     "union-arena": [
         "id",
@@ -440,7 +446,6 @@ def format_digimon(card):
     }
 
 def format_pokemon(card):
-
     return {
         "id": card.get("id"),
         "code": card.get("code"),
@@ -455,7 +460,6 @@ def format_pokemon(card):
     }
 
 def format_dbs(card):
-
     return {
         "id": card.get("id"),
         "code": card.get("code"),
