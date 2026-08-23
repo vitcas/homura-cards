@@ -33,6 +33,7 @@ collections = {
     "star-wars": db["swu_cards"],
     "riftbound": db["riftbound_cards"],
     "gundam": db["gundam_cards"],
+    "universus": db["universus_cards"],
     "lorcana": db["lorcana_cards"],
     "vanguard": db["vanguard_cards"],
     "union-arena": db["unionarena_cards"]
@@ -84,6 +85,11 @@ SORTABLE_FIELDS = {
         "level"
     ],
     "lorcana": [
+        "id",
+        "code",
+        "name"
+    ],
+    "universus": [
         "id",
         "code",
         "name"
