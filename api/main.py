@@ -1,10 +1,9 @@
 # main.py
-import os, math, requests
+import os, math
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException, Request, Body
 from fastapi.middleware.cors import CORSMiddleware
 from api.security import api_key_guard
-from api.magic import fetch_mtg_cards
 from api.mango import (buscar_por_nome, contar_docs, buscar_docs, random_doc, buscar_por_id, get_meta)
 import api.filters as filters
 
@@ -12,7 +11,7 @@ load_dotenv()
 
 API_KEY = os.getenv("API_KEY")
 
-app = FastAPI(title="Cards API", version="1.0.1", dependencies=[Depends(api_key_guard)])
+app = FastAPI(title="Homura Cards API", version="1.0.2", dependencies=[Depends(api_key_guard)])
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -35,7 +34,7 @@ GAME_CONFIG = {
     "lorcana": {"collection": "lorcana", "filter_fn": filters.apply_lorcana_filters},
     "cardfight-vanguard": {"collection": "vanguard", "filter_fn": filters.apply_vanguard_filters},
     "union-arena": {"collection": "union-arena", "filter_fn": filters.apply_unionarena_filters},
-    "magic": { "collection": None, "filter_fn": None}
+    "grand-archive": { "collection": "grand-archive", "filter_fn": filters.apply_grandarchive_filters}
 }
 
 def has_game(game: str) -> bool:
@@ -54,35 +53,6 @@ def paginated_response(data, page, limit, total):
 def root():
     return get_meta()
 
-@app.get("/api/magic/cards")
-def get_mtg_cards(
-    limit: int = 25,
-    page: int = 1,
-    name: str | None = None,
-    set: str | None = None,
-    colors: str | None = None,
-    rarity: str | None = None,
-    layout: str | None = None,
-    cmc: str | None = None,
-    language: str | None = None,
-    id: str | None = None,
-):
-    try:
-        return fetch_mtg_cards(
-            limit=limit,
-            page=page,
-            name=name,
-            set=set,
-            colors=colors,
-            rarity=rarity,
-            layout=layout,
-            cmc=cmc,
-            language=language,
-            id=id,
-        )
-    except requests.HTTPError as e:
-        raise HTTPException(502, detail=f"Falha ao consultar Scryfall: {e}")
-
 @app.get("/api/{game}/cards")
 def get_cards(
     game: str,
@@ -94,18 +64,10 @@ def get_cards(
     ):
     if not has_game(game):
         raise HTTPException(404, "Jogo não encontrado")
-    if game == "magic":
-        return get_mtg_cards(limit=limit, page=page)
     config = GAME_CONFIG[game]
     query = config["filter_fn"](request.query_params)
     total = contar_docs(config["collection"], query)
-    data = buscar_docs(
-    config["collection"],
-    query,
-    page,
-    limit,
-    sort,
-    order)
+    data = buscar_docs(config["collection"], query, page, limit, sort, order)
     return paginated_response(data, page, limit, total)
 
 @app.post("/api/{game}/cards/bulk")
@@ -129,11 +91,11 @@ def get_card_by_id_or_name(game: str, q: str):
         raise HTTPException(404, "Jogo não encontrado")
     collection = GAME_CONFIG[game]["collection"]
     # tenta ID primeiro
-    card = buscar_por_nome(collection, q)
+    card = buscar_por_id(collection, q)
     if card:
         return {"data": card}
     # fallback para nome
-    card = buscar_por_id(collection, q)
+    card = buscar_por_nome(collection, q)
     if not card:
         raise HTTPException(404, "Card não encontrado")
     return {"data": card}

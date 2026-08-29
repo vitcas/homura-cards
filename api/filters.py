@@ -248,3 +248,15 @@ def apply_universus_filters(args):
     if args.get("set"):
         q["set.set_code"] = args["set"]
     return q
+
+def apply_grandarchive_filters(args):
+    q = {}
+    if args.get("id"):
+        q["id"] = {"$regex": args["id"], "$options": "i"}
+    if args.get("code"):
+        q["code"] = {"$regex": args["code"], "$options": "i"}
+    if args.get("name"):
+        q["name"] = {"$regex": args["name"], "$options": "i"}
+    if args.get("set"):
+        q["set.set_code"] = args["set"]
+    return q

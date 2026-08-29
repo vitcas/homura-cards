@@ -36,7 +36,8 @@ collections = {
     "universus": db["universus_cards"],
     "lorcana": db["lorcana_cards"],
     "vanguard": db["vanguard_cards"],
-    "union-arena": db["unionarena_cards"]
+    "union-arena": db["unionarena_cards"],
+    "grand-archive": db["grandarchive_cards"]
 }
 
 SORTABLE_FIELDS = {
@@ -100,6 +101,11 @@ SORTABLE_FIELDS = {
         "name"
     ],
     "union-arena": [
+        "id",
+        "code",
+        "name"
+    ],
+    "grand-archive": [
         "id",
         "code",
         "name"
