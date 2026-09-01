@@ -284,28 +284,16 @@ def format_fab(card):
     return formatted
 
 def format_sorcery(card):
-    formatted = {
+    return {
         "id": str(card.get("id")),
         "name": card.get("name"),   
         "guardian": card.get("guardian", {}),
         "elements": card.get("elements"),
         "subTypes": card.get("subTypes", []),
         "images": card.get("images", {}),
-        "variants": []
+        "set": card.get("sets", {}),
+        "variants": card.get("variants", [])
     }
-    variants = []
-    for s in card.get("sets", []):
-        set_name = s.get("name")
-        for v in s.get("variants", []):
-            variants.append({
-                "set": set_name,
-                "finish": v.get("finish"),
-                "product": v.get("product"),
-                "tcgplayerId": v.get("tcgplayerId"),
-                "marketPrice": v.get("marketPrice"),
-            })
-    formatted["variants"] = variants
-    return formatted
 
 def format_rift(card):
     formatted = {
