@@ -34,7 +34,8 @@ GAME_CONFIG = {
     "lorcana": {"collection": "lorcana", "filter_fn": filters.apply_lorcana_filters},
     "cardfight-vanguard": {"collection": "vanguard", "filter_fn": filters.apply_vanguard_filters},
     "union-arena": {"collection": "union-arena", "filter_fn": filters.apply_unionarena_filters},
-    "grand-archive": { "collection": "grand-archive", "filter_fn": filters.apply_grandarchive_filters}
+    "grand-archive": { "collection": "grand-archive", "filter_fn": filters.apply_grandarchive_filters},
+    "altered": {"collection": "altered", "filter_fn": filters.apply_altered_filters},
 }
 
 def has_game(game: str) -> bool:
@@ -64,6 +65,15 @@ def get_cards(
     ):
     if not has_game(game):
         raise HTTPException(404, "Jogo não encontrado")
+    invalid_filters = filters.validate_filter_params(game, request.query_params)
+    if invalid_filters:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": "Filtro não suportado para este jogo",
+                "filters": sorted(invalid_filters)
+            }
+        )
     config = GAME_CONFIG[game]
     query = config["filter_fn"](request.query_params)
     total = contar_docs(config["collection"], query)

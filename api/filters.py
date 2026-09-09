@@ -1,4 +1,94 @@
 # filters.py
+
+ALLOWED_FILTERS = {
+    "sorcery": {
+        "name", "type", "rarity", "element",
+        "subtype", "set", "finish", "product", "artist"
+    },
+
+    "one-piece": {
+        "id", "code", "name", "rarity",
+        "type", "color", "cost", "power", "family", "set"
+    },
+
+    "gundam": {
+        "id", "code", "name", "rarity"
+    },
+
+    "union-arena": {
+        "id", "code", "name", "rarity"
+    },
+
+    "riftbound": {
+        "name", "rarity", "might", "energyCost",
+        "powerCost", "cardType", "domain", "set"
+    },
+
+    "fab": {
+        "name", "set"
+    },
+
+    "yugioh": {
+        "id", "konami_id", "effect", "name",
+        "attribute", "type", "frameType", "set", "rarity"
+    },
+
+    "star-wars": {
+        "name", "set"
+    },
+
+    "digimon": {
+        "id", "code", "name", "rarity",
+        "type", "color", "set"
+    },
+
+    "pokemon": {
+        "id", "code", "name", "rarity",
+        "type", "set", "card_type", "stage", "artist"
+    },
+
+    "dragon-ball-fusion": {
+        "id", "code", "name", "rarity",
+        "type", "color", "cost", "power",
+        "characterTraits", "set"
+    },
+
+    "lorcana": {
+        "id", "code", "name", "rarity", "set"
+    },
+
+    "cardfight-vanguard": {
+        "id", "code", "name", "set"
+    },
+
+    "universus": {
+        "id", "code", "name", "set"
+    },
+
+    "grand-archive": {
+        "id", "code", "name", "set"
+    },
+
+    "altered": {
+        "id", "code", "name", "set"
+    },
+}
+
+def validate_filter_params(game, args):
+    allowed = ALLOWED_FILTERS.get(game, set())
+    ignored = {
+        key
+        for key in args.keys()
+        if key not in {
+            "page",
+            "limit",
+            "sort",
+            "order"
+        }
+        and key not in allowed
+    }
+    return ignored
+
 def apply_sorcery_filters(args):
     q = {}
     # Busca por nome da carta
@@ -250,6 +340,18 @@ def apply_universus_filters(args):
     return q
 
 def apply_grandarchive_filters(args):
+    q = {}
+    if args.get("id"):
+        q["id"] = {"$regex": args["id"], "$options": "i"}
+    if args.get("code"):
+        q["code"] = {"$regex": args["code"], "$options": "i"}
+    if args.get("name"):
+        q["name"] = {"$regex": args["name"], "$options": "i"}
+    if args.get("set"):
+        q["set.set_code"] = args["set"]
+    return q
+
+def apply_altered_filters(args):
     q = {}
     if args.get("id"):
         q["id"] = {"$regex": args["id"], "$options": "i"}
