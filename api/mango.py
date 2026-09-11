@@ -1,6 +1,7 @@
 # mango.py
 # interações com o banco de dados mongo
-import os, re
+import os
+import re
 from dotenv import load_dotenv
 from pymongo import MongoClient, ASCENDING, DESCENDING
 from urllib.parse import quote_plus
@@ -12,111 +13,23 @@ MONGO_USR = os.getenv("MONGO_USR")
 MONGO_PWD = os.getenv("MONGO_PWD")
 pwd = quote_plus(MONGO_PWD)
 MONGO_CLUSTER = os.getenv("MONGO_CLUSTER")
-uri = f"mongodb+srv://{MONGO_USR}:{pwd}@{MONGO_CLUSTER}/?retryWrites=true&w=majority"
+uri = (f"mongodb+srv://{MONGO_USR}:{pwd}@{MONGO_CLUSTER}/?retryWrites=true&w=majority")
 client = MongoClient(
     uri,
     maxPoolSize=20,
     minPoolSize=5,
     serverSelectionTimeoutMS=5000
 )
-
 db = client["tcg"]
 
-collections = {
-    "yugioh": db["yugioh_cards"],
-    "digimon": db["digimon_cards"],
-    "pokemon": db["pokemon_cards"],
-    "dragon-ball-fusion": db["dragonball_cards"],
-    "fab": db["fab_cards"],
-    "one-piece": db["onepiece_cards"],
-    "sorcery": db["sorcery_cards"],
-    "star-wars": db["swu_cards"],
-    "riftbound": db["riftbound_cards"],
-    "gundam": db["gundam_cards"],
-    "universus": db["universus_cards"],
-    "lorcana": db["lorcana_cards"],
-    "altered": db["altered_cards"],
-    "vanguard": db["vanguard_cards"],
-    "union-arena": db["unionarena_cards"],
-    "grand-archive": db["grandarchive_cards"]
-}
+def get_collection(collection_name):
+    return db[collection_name]
 
-SORTABLE_FIELDS = {
-    "one-piece": [
-        "id",
-        "code",
-        "name",
-        "cost",
-        "power",
-        "rarity"
-    ],
-    "yugioh": [
-        "id",
-        "name",
-        "level",
-        "atk",
-        "def"
-    ],
-    "fab": [
-        "id",
-        "name",
-        "cost",
-        "pitch",
-        "power"
-    ],
-    "sorcery": [
-        "id",
-        "name"
-    ],
-    "riftbound": [
-        "id",
-        "name",
-        "might",
-        "energyCost",
-        "powerCost"
-    ],
-    "star-wars": [
-        "Name",
-        "Set"
-    ],
-    "gundam": [
-        "id",
-        "code",
-        "name",
-        "cost",
-        "level"
-    ],
-    "lorcana": [
-        "id",
-        "code",
-        "name"
-    ],
-    "universus": [
-        "id",
-        "code",
-        "name"
-    ],
-    "vanguard": [
-        "id",
-        "code",
-        "name"
-    ],
-    "union-arena": [
-        "id",
-        "code",
-        "name"
-    ],
-    "grand-archive": [
-        "id",
-        "code",
-        "name"
-    ],
-    "altered": [
-        "id",
-        "code",
-        "name"
-    ]
-}
+def get_meta():
+    docs = list(
+        db.collection_meta.find({}, {"_id": 0})
+    )
+    return docs
 
 def touch_collection(collection_name):
     db.collection_meta.update_one(
@@ -125,89 +38,103 @@ def touch_collection(collection_name):
         upsert=True
     )
 
-def get_meta():
-    docs = list(db.collection_meta.find({}, {"_id": 0}))
-    return docs
+def buscar_por_id(collection_name, card_id):
+    collection = get_collection(collection_name)
 
-def buscar_por_id(collec, card_id):
     query = {}
-    # yugioh → id é número
-    if collec == "yugioh":
+
+    # Yu-Gi-Oh → id é número
+    if collection_name == "yugioh_cards":
         try:
             query["id"] = int(card_id)
-        except ValueError:
+        except (ValueError, TypeError):
             return None
-    # fab → usa unique_id
-    elif collec == "fab":
+
+    # FAB → usa unique_id
+    elif collection_name == "fab_cards":
         query["unique_id"] = card_id
-    # swu → id é Set-Number, mas você gera isso no formatador
-    elif collec == "star-wars":
-        # exemplo: SWH-002 → separa set e number
+
+    # SWU → id é Set-Number
+    elif collection_name == "swu_cards":
         if "-" in card_id:
             set_code, number = card_id.split("-", 1)
             query["Set"] = set_code
             query["Number"] = number
         else:
             return None
-    # one-piece, riftbound, sorcery → usam id string normal
+
+    # Demais jogos → id normal
     else:
         query["id"] = card_id
-    return collections[collec].find_one(query, {"_id": 0})
 
-def buscar_por_nome(collec, name):
-    if not name or collec == "magic":
+    return collection.find_one(query, {"_id": 0})
+
+def buscar_por_nome(collection_name, name):
+    if not name:
         return None
+
+    collection = get_collection(collection_name)
+
     field_map = {
-        "star-wars": "Title",
+        "swu_cards": "Title",
     }
-    field = field_map.get(collec, "name")
+
+    field = field_map.get(collection_name, "name")
+
     query = {
         field: {
             "$regex": f"^{re.escape(name.strip())}$",
             "$options": "i",
         }
     }
-    return collections[collec].find_one(query, {"_id": 0})
 
-def contar_docs(collec, query):
-    return collections[collec].count_documents(query)
+    return collection.find_one(query, {"_id": 0})
 
-def buscar_docs(collec, query, page, limit, sort=None, order="asc"):
-    cursor = collections[collec].find(query, {"_id": 0})
-    allowed = SORTABLE_FIELDS.get(collec, [])
-    if sort and sort in allowed:
-        direction = ASCENDING if order.lower() == "asc" else DESCENDING
+def contar_docs(collection_name, query):
+    collection = get_collection(collection_name)
+    return collection.count_documents(query)
+
+def buscar_docs(collection_name,query,page,limit,sort=None,order="asc"):
+    collection = get_collection(collection_name)
+    cursor = collection.find(query, {"_id": 0})
+    if sort:
+        direction = (
+            ASCENDING
+            if order.lower() == "asc"
+            else DESCENDING
+        )
         cursor = cursor.sort(sort, direction)
-    cursor = (cursor.skip((page - 1) * limit).limit(limit))
-    return [format_card(collec, c) for c in cursor]
+    cursor = (
+        cursor
+        .skip((page - 1) * limit)
+        .limit(limit)
+    )
+    return [
+        format_card(collection_name, card)
+        for card in cursor
+    ]
 
-def random_doc(collec):
-    docs = list(collections[collec].aggregate([{"$sample": {"size": 1}},{"$project": {"_id": 0}}]))
-    return format_card(collec, docs[0]) if docs else None
+def random_doc(collection_name):
+    collection = get_collection(collection_name)
+    docs = list(
+        collection.aggregate([
+            {"$sample": {"size": 1}},
+            {"$project": {"_id": 0}}
+        ])
+    )
+    return (
+        format_card(collection_name, docs[0])
+        if docs
+        else None
+    )
 
 def format_card(collec, card):
     if collec == "yugioh":
         return format_yugi(card)
     if collec == "fab":
         return format_fab(card)
-    if collec == "sorcery":
-        return format_sorcery(card)
-    if collec == "riftbound":
-        return format_rift(card)
-    if collec == "one-piece":
-        return format_op(card)
     if collec == "star-wars":
         return format_swu(card)
-    if collec == "gundam":
-        return format_gundam(card)
-    if collec == "union-arena":
-        return format_uniona(card)
-    if collec == "digimon":
-        return format_digimon(card)
-    if collec == "pokemon":
-        return format_pokemon(card)
-    if collec == "dragon-ball-fusion":
-        return format_dbs(card)
     return card  # fallback
 
 def format_yugi(card):
@@ -289,99 +216,6 @@ def format_fab(card):
     formatted["images"] = {"small": img, "large": img}
     return formatted
 
-def format_sorcery(card):
-    return {
-        "id": str(card.get("id")),
-        "name": card.get("name"),   
-        "guardian": card.get("guardian", {}),
-        "elements": card.get("elements"),
-        "subTypes": card.get("subTypes", []),
-        "images": card.get("images", {}),
-        "set": card.get("sets", {}),
-        "variants": card.get("variants", [])
-    }
-
-def format_rift(card):
-    formatted = {
-        "id": card.get("id"),
-        "number": card.get("number"),
-        "name": card.get("cleanName"),
-        "cardType": card.get("cardType"),
-        "rarity": card.get("rarity"),
-        "domain": card.get("domain"),
-        "energyCost": card.get("energyCost"),
-        "powerCost": card.get("powerCost"),
-        "might": card.get("might"),
-        "description": card.get("description"),
-        "flavorText": card.get("flavorText"),
-        "images": card.get("images", {}),
-        "set": card.get("set", {}),
-        "variants": card.get("variants", [])
-    }
-    return formatted
-
-def format_gundam(card):
-    formatted = {
-        "id": card.get("id"),
-        "code": card.get("code"),
-        "rarity": card.get("rarity"),
-        "name": card.get("name"),
-        "images": card.get("images", {}),
-        "level": card.get("level"),
-        "cost": card.get("cost"),
-        "color": card.get("color"),
-        "cardType": card.get("cardType"),
-        "effect": card.get("effect", {}),
-        "zone": card.get("zone"),
-        "trait": card.get("trait"),
-        "link": card.get("link"),
-        "ap": card.get("ap"),
-        "hp": card.get("hp"),
-        "sourceTitle": card.get("sourceTitle"),
-        "getIt": card.get("getIt"),
-        "set": card.get("set", {})
-    }
-    return formatted
-
-def format_op(card):
-    formatted = {
-        "id": card.get("id"),
-        "code": card.get("code"),
-        "name": card.get("name"),
-        "type": card.get("type"),
-        "rarity": card.get("rarity"),
-        "color": card.get("color"),
-        "family": card.get("family"),
-        "attribute": card.get("attribute", {}),
-        "cost": card.get("cost"),
-        "power": card.get("power"),
-        "counter": card.get("counter"),
-        "ability": card.get("ability"),
-        "trigger": card.get("trigger"),
-        "images": card.get("images", {}),
-        "set": card.get("set", {}),
-        "variants": card.get("variants", [])
-    }
-    return formatted
-
-def format_uniona(card):
-    formatted = {
-        "id": card.get("id"),
-        "code": card.get("code"),
-        "url": card.get("url"),
-        "name": card.get("name"),
-        "rarity": card.get("rarity"),
-        "ap": card.get("ap"),
-        "type": card.get("type"),
-        "bp": card.get("bp"),
-        "affinity": card.get("affinity"),
-        "effect": card.get("effect"),
-        "trigger": card.get("trigger"),
-        "images": card.get("images", {}),
-        "set": card.get("set", {})
-    }
-    return formatted
-
 def format_swu(card):
     formatted = {
         "id": None,
@@ -436,54 +270,226 @@ def format_swu(card):
 
     return formatted
 
-def format_digimon(card):
-    return {
-        "id": card.get("id"),
-        "code": card.get("code"),
-        "name": card.get("name"),
-        "rarity": card.get("rarity"),
-        "type": card.get("type"),
-        "color": card.get("color"),
-        "level": card.get("level"),
-        "playCost": card.get("playCost"),
-        "evolutionCost": card.get("evolutionCost"),
-        "dp": card.get("dp"),
-        "digivolve": card.get("digivolve"),
-        "effect": card.get("effect"),
-        "securityEffect": card.get("securityEffect"),
-        "inheritedEffect": card.get("inheritedEffect"),
-        "images": card.get("images", {}),
-        "set": card.get("set", {}),
-        "variants": card.get("variants", [])
-    }
+def get_variant_min_price(card):
+    variants = card.get("variants") or []
+    prices = []
+    for variant in variants:
+        price = variant.get("price")
+        if isinstance(price, (int, float)) and price > 0:
+            prices.append(price)
+    return min(prices) if prices else None
 
-def format_pokemon(card):
-    return {
-        "id": card.get("id"),
-        "code": card.get("code"),
-        "name": card.get("name"),
-        "rarity": card.get("rarity"),
-        "type": card.get("type"),
-        "images": card.get("images", {}),
-        "set": card.get("set", {}),
-        "pokemon": card.get("pokemon", {}),
-        "text": card.get("text", {}),
-        "variants": card.get("variants", [])
-    }
+def select_card_by_lowest_price(cards):
+    """
+    Escolhe o card que possui o menor preço válido em variants.
 
-def format_dbs(card):
+    Considera apenas preços:
+    - numéricos
+    - maiores que zero
+
+    Se nenhum card tiver preço válido, retorna o primeiro
+    de forma determinística.
+    """
+    if not cards:
+        return None
+    best_card = cards[0]
+    best_price = get_variant_min_price(best_card)
+    for card in cards[1:]:
+        price = get_variant_min_price(card)
+        if price is None:
+            continue
+        if best_price is None or price < best_price:
+            best_card = card
+            best_price = price
+    return best_card
+
+def buscar_bulk(collection_name, method, values):
+    """
+    Busca vários cards em uma única consulta MongoDB.
+    - method: id, code ou name
+    - preserva a ordem de values
+    - escolhe o documento com menor variants[].price
+    """
+    collection = get_collection(collection_name)
+    # Monta a query
+    if method == "code":
+        query = {
+            "code": {
+                "$in": values
+            }
+        }
+    elif method == "name":
+        field = "Title" if collection_name == "swu_cards" else "name"
+
+        query = {
+            "$or": [
+                {
+                    field: {
+                        "$regex": f"^{re.escape(value.strip())}$",
+                        "$options": "i"
+                    }
+                }
+                for value in values
+            ]
+        }
+
+    elif method == "id":
+
+        # Yu-Gi-Oh → id numérico
+        if collection_name == "yugioh_cards":
+            numeric_ids = []
+
+            for value in values:
+                try:
+                    numeric_ids.append(int(value))
+                except (ValueError, TypeError):
+                    pass
+
+            if not numeric_ids:
+                return {
+                    "count": len(values),
+                    "found": 0,
+                    "not_found": values,
+                    "data": [
+                        {
+                            "query": value,
+                            "data": None
+                        }
+                        for value in values
+                    ]
+                }
+
+            query = {
+                "id": {
+                    "$in": numeric_ids
+                }
+            }
+
+        # FAB → unique_id
+        elif collection_name == "fab_cards":
+            query = {
+                "unique_id": {
+                    "$in": values
+                }
+            }
+
+        # SWU → Set + Number
+        elif collection_name == "swu_cards":
+            conditions = []
+
+            for value in values:
+                if "-" not in value:
+                    continue
+
+                set_code, number = value.split("-", 1)
+
+                conditions.append({
+                    "Set": set_code,
+                    "Number": number
+                })
+
+            if not conditions:
+                return {
+                    "count": len(values),
+                    "found": 0,
+                    "not_found": values,
+                    "data": [
+                        {
+                            "query": value,
+                            "data": None
+                        }
+                        for value in values
+                    ]
+                }
+
+            query = {
+                "$or": conditions
+            }
+
+        # Demais jogos → id normal
+        else:
+            query = {
+                "id": {
+                    "$in": values
+                }
+            }
+
+    else:
+        raise ValueError(f"Método de busca inválido: {method}")
+
+    # UMA consulta ao Mongo
+    docs = list(
+        collection.find(
+            query,
+            {"_id": 0}
+        )
+    )
+
+    # Agrupa documentos pelo valor pesquisado
+    grouped = {}
+
+    for doc in docs:
+
+        if method == "code":
+            key = doc.get("code")
+
+        elif method == "name":
+            field = "Title" if collection_name == "swu_cards" else "name"
+            key = doc.get(field)
+
+        elif method == "id":
+
+            if collection_name == "yugioh_cards":
+                key = str(doc.get("id"))
+
+            elif collection_name == "fab_cards":
+                key = doc.get("unique_id")
+
+            elif collection_name == "swu_cards":
+                key = f"{doc.get('Set')}-{doc.get('Number')}"
+
+            else:
+                key = doc.get("id")
+
+        if key is not None:
+            grouped.setdefault(
+                str(key).strip().lower(),
+                []
+            ).append(doc)
+
+    # Monta resultado na ordem original
+    data = []
+    not_found = []
+
+    for value in values:
+        key = value.strip().lower()
+
+        matches = grouped.get(key, [])
+
+        if not matches:
+            not_found.append(value)
+
+            data.append({
+                "query": value,
+                "data": None
+            })
+
+            continue
+
+        # Escolhe o menor preço válido
+        card = select_card_by_lowest_price(matches)
+
+        data.append({
+            "query": value,
+            "data": format_card(
+                collection_name,
+                card
+            )
+        })
+
     return {
-        "id": card.get("id"),
-        "code": card.get("code"),
-        "name": card.get("name"),
-        "rarity": card.get("rarity"),
-        "type": card.get("type"),
-        "color": card.get("color"),
-        "cost": card.get("cost"),
-        "power": card.get("power"),
-        "characterTraits": card.get("characterTraits"),
-        "images": card.get("images", {}),
-        "set": card.get("set", {}),
-        "text": card.get("text", {}),
-        "variants": card.get("variants", [])
+        "count": len(values),
+        "found": len(values) - len(not_found),
+        "not_found": not_found,
+        "data": data
     }

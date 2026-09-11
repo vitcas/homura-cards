@@ -4,14 +4,14 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException, Request, Body
 from fastapi.middleware.cors import CORSMiddleware
 from api.security import api_key_guard
-from api.mango import (buscar_por_nome, contar_docs, buscar_docs, random_doc, buscar_por_id, get_meta)
+from api.mango import (buscar_por_nome, contar_docs, buscar_docs, random_doc, buscar_por_id, buscar_bulk, get_meta)
 import api.filters as filters
 
 load_dotenv()
 
 API_KEY = os.getenv("API_KEY")
 
-app = FastAPI(title="Homura Cards API", version="1.0.2", dependencies=[Depends(api_key_guard)])
+app = FastAPI(title="Homura Cards API", version="1.0.3", dependencies=[Depends(api_key_guard)])
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -20,22 +20,22 @@ app.add_middleware(
 )
 
 GAME_CONFIG = {
-    "sorcery": {"collection": "sorcery", "filter_fn": filters.apply_sorcery_filters},
-    "pokemon": {"collection": "pokemon", "filter_fn": filters.apply_pokemon_filters},
-    "digimon": {"collection": "digimon", "filter_fn": filters.apply_digimon_filters},
-    "dragon-ball-fusion": {"collection": "dragon-ball-fusion", "filter_fn": filters.apply_dbs_filters},
-    "one-piece": {"collection": "one-piece", "filter_fn": filters.apply_onepiece_filters},
-    "riftbound": {"collection": "riftbound", "filter_fn": filters.apply_riftbound_filters},
-    "fab": {"collection": "fab", "filter_fn": filters.apply_fab_filters},
-    "yugioh": {"collection": "yugioh", "filter_fn": filters.apply_yugioh_filters},
-    "star-wars": {"collection": "star-wars", "filter_fn": filters.apply_swu_filters},
-    "gundam": {"collection": "gundam", "filter_fn": filters.apply_gundam_filters},
-    "universus": {"collection": "universus", "filter_fn": filters.apply_universus_filters},
-    "lorcana": {"collection": "lorcana", "filter_fn": filters.apply_lorcana_filters},
-    "cardfight-vanguard": {"collection": "vanguard", "filter_fn": filters.apply_vanguard_filters},
-    "union-arena": {"collection": "union-arena", "filter_fn": filters.apply_unionarena_filters},
-    "grand-archive": { "collection": "grand-archive", "filter_fn": filters.apply_grandarchive_filters},
-    "altered": {"collection": "altered", "filter_fn": filters.apply_altered_filters},
+    "sorcery": {"collection": "sorcery_cards", "filter_fn": filters.apply_sorcery_filters},
+    "pokemon": {"collection": "pokemon_cards", "filter_fn": filters.apply_pokemon_filters},
+    "digimon": {"collection": "digimon_cards", "filter_fn": filters.apply_digimon_filters},
+    "dragon-ball-fusion": {"collection": "dragonball_cards", "filter_fn": filters.apply_dbs_filters},
+    "one-piece": {"collection": "onepiece_cards", "filter_fn": filters.apply_onepiece_filters},
+    "riftbound": {"collection": "riftbound_cards", "filter_fn": filters.apply_riftbound_filters},
+    "fab": {"collection": "fab_cards", "filter_fn": filters.apply_fab_filters},
+    "yugioh": {"collection": "yugioh_cards", "filter_fn": filters.apply_yugioh_filters},
+    "star-wars": {"collection": "swu_cards", "filter_fn": filters.apply_swu_filters},
+    "gundam": {"collection": "gundam_cards", "filter_fn": filters.apply_gundam_filters},
+    "universus": {"collection": "universus_cards", "filter_fn": filters.apply_universus_filters},
+    "lorcana": {"collection": "lorcana_cards", "filter_fn": filters.apply_lorcana_filters},
+    "cardfight-vanguard": {"collection": "vanguard_cards", "filter_fn": filters.apply_vanguard_filters},
+    "union-arena": {"collection": "unionarena_cards", "filter_fn": filters.apply_unionarena_filters},
+    "grand-archive": { "collection": "grandarchive_cards", "filter_fn": filters.apply_grandarchive_filters},
+    "altered": {"collection": "altered_cards", "filter_fn": filters.apply_altered_filters},
 }
 
 def has_game(game: str) -> bool:
@@ -82,16 +82,69 @@ def get_cards(
 
 @app.post("/api/{game}/cards/bulk")
 def get_cards_bulk(game: str, body: dict = Body(...)):
-    ids = body.get("ids")
-    if not isinstance(ids, list):
-        raise HTTPException(400, "Envie um JSON com lista 'ids'")
+    if not has_game(game):
+        raise HTTPException(404, "Jogo não encontrado")
+    method = body.get("method")
+    values = body.get("values")
+    # Validação do método
+    allowed_methods = {"id", "code", "name"}
+    if method not in allowed_methods:
+        raise HTTPException(
+            400,
+            {
+                "message": "Método de busca inválido",
+                "allowed": sorted(allowed_methods)
+            }
+        )
+    # Validação da lista
+    if not isinstance(values, list):
+        raise HTTPException(
+            400,
+            "Envie um JSON com lista 'values'"
+        )
+    if not values:
+        return {
+            "method": method,
+            "count": 0,
+            "found": 0,
+            "not_found": [],
+            "data": []
+        }
+    # Todos os valores precisam ser strings
+    if not all(isinstance(value, str) for value in values):
+        raise HTTPException(
+            400,
+            "Todos os valores de 'values' devem ser strings"
+        )
+    # Remove espaços e valores vazios
+    values = [
+        value.strip()
+        for value in values
+        if value.strip()
+    ]
+    if not values:
+        return {
+            "method": method,
+            "count": 0,
+            "found": 0,
+            "not_found": [],
+            "data": []
+        }
     collection = GAME_CONFIG[game]["collection"]
-    result = [buscar_por_id(collection, cid) for cid in ids]
-    result = [c for c in result if c]
-    return {"count": len(result), "data": result}
+    result = buscar_bulk(
+        collection,
+        method,
+        values
+    )
+    return {
+        "method": method,
+        **result
+    }
 
 @app.get("/api/{game}/cards/random")
 def get_random_card(game: str):
+    if not has_game(game):
+        raise HTTPException(404, "Jogo não encontrado")
     data = random_doc(GAME_CONFIG[game]["collection"])
     return {"data": data}
 
