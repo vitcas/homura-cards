@@ -11,7 +11,7 @@ load_dotenv()
 
 API_KEY = os.getenv("API_KEY")
 
-app = FastAPI(title="Homura Cards API", version="1.0.3", dependencies=[Depends(api_key_guard)])
+app = FastAPI(title="Homura Cards API", version="1.0.4", dependencies=[Depends(api_key_guard)])
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -20,22 +20,25 @@ app.add_middleware(
 )
 
 GAME_CONFIG = {
-    "sorcery": {"collection": "sorcery_cards", "filter_fn": filters.apply_sorcery_filters},
-    "pokemon": {"collection": "pokemon_cards", "filter_fn": filters.apply_pokemon_filters},
+    "altered": {"collection": "altered_cards", "filter_fn": filters.apply_altered_filters},
+    "cardfight-vanguard": {"collection": "vanguard_cards", "filter_fn": filters.apply_vanguard_filters},
+    "cyberpunk": {"collection": "cyberpunk_cards", "filter_fn": filters.apply_cyberpunk_filters},
     "digimon": {"collection": "digimon_cards", "filter_fn": filters.apply_digimon_filters},
     "dragon-ball-fusion": {"collection": "dragonball_cards", "filter_fn": filters.apply_dbs_filters},
-    "one-piece": {"collection": "onepiece_cards", "filter_fn": filters.apply_onepiece_filters},
-    "riftbound": {"collection": "riftbound_cards", "filter_fn": filters.apply_riftbound_filters},
     "fab": {"collection": "fab_cards", "filter_fn": filters.apply_fab_filters},
-    "yugioh": {"collection": "yugioh_cards", "filter_fn": filters.apply_yugioh_filters},
-    "star-wars": {"collection": "swu_cards", "filter_fn": filters.apply_swu_filters},
-    "gundam": {"collection": "gundam_cards", "filter_fn": filters.apply_gundam_filters},
-    "universus": {"collection": "universus_cards", "filter_fn": filters.apply_universus_filters},
-    "lorcana": {"collection": "lorcana_cards", "filter_fn": filters.apply_lorcana_filters},
-    "cardfight-vanguard": {"collection": "vanguard_cards", "filter_fn": filters.apply_vanguard_filters},
-    "union-arena": {"collection": "unionarena_cards", "filter_fn": filters.apply_unionarena_filters},
+    "godzilla": {"collection": "godzilla_cards", "filter_fn": filters.apply_godzilla_filters},
     "grand-archive": { "collection": "grandarchive_cards", "filter_fn": filters.apply_grandarchive_filters},
-    "altered": {"collection": "altered_cards", "filter_fn": filters.apply_altered_filters},
+    "gundam": {"collection": "gundam_cards", "filter_fn": filters.apply_gundam_filters},
+    "hololive": {"collection": "hololive_cards", "filter_fn": filters.apply_hololive_filters},
+    "lorcana": {"collection": "lorcana_cards", "filter_fn": filters.apply_lorcana_filters},
+    "one-piece": {"collection": "onepiece_cards", "filter_fn": filters.apply_onepiece_filters},
+    "pokemon": {"collection": "pokemon_cards", "filter_fn": filters.apply_pokemon_filters},
+    "riftbound": {"collection": "riftbound_cards", "filter_fn": filters.apply_riftbound_filters},
+    "sorcery": {"collection": "sorcery_cards", "filter_fn": filters.apply_sorcery_filters},
+    "star-wars": {"collection": "swu_cards", "filter_fn": filters.apply_swu_filters},
+    "universus": {"collection": "universus_cards", "filter_fn": filters.apply_universus_filters},
+    "union-arena": {"collection": "unionarena_cards", "filter_fn": filters.apply_unionarena_filters},
+    "yugioh": {"collection": "yugioh_cards", "filter_fn": filters.apply_yugioh_filters}, 
 }
 
 def has_game(game: str) -> bool:
