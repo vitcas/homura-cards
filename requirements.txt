@@ -3,4 +3,4 @@ uvicorn
 python-dotenv
 pymongo
 requests
-
+slowapi

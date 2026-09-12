@@ -1,23 +1,15 @@
 # main.py
-import os, math
-from dotenv import load_dotenv
+import math
+from slowapi import Limiter
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from fastapi.responses import JSONResponse
 from fastapi import FastAPI, Depends, HTTPException, Request, Body
 from fastapi.middleware.cors import CORSMiddleware
 from api.security import api_key_guard
 from api.mango import (buscar_por_nome, contar_docs, buscar_docs, random_doc, buscar_por_id, buscar_bulk, get_meta)
 import api.filters as filters
-
-load_dotenv()
-
-API_KEY = os.getenv("API_KEY")
-
-app = FastAPI(title="Homura Cards API", version="1.0.4", dependencies=[Depends(api_key_guard)])
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 GAME_CONFIG = {
     "altered": {"collection": "altered_cards", "filter_fn": filters.apply_altered_filters},
@@ -41,6 +33,31 @@ GAME_CONFIG = {
     "yugioh": {"collection": "yugioh_cards", "filter_fn": filters.apply_yugioh_filters}, 
 }
 
+app = FastAPI(title="Homura Cards API", version="1.0.4", dependencies=[Depends(api_key_guard)])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware)
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc):
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "Muitas requisições. Aguarde um momento."},
+        headers={"Retry-After": "60"},
+    )
+
+@app.middleware("http")
+async def add_cache_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Cache-Control"] = "s-maxage=300, stale-while-revalidate=600"
+    return response
+
 def has_game(game: str) -> bool:
     return game in GAME_CONFIG
 
@@ -58,6 +75,7 @@ def root():
     return get_meta()
 
 @app.get("/api/{game}/cards")
+@limiter.limit("30/minute")
 def get_cards(
     game: str,
     request: Request,
@@ -84,7 +102,8 @@ def get_cards(
     return paginated_response(data, page, limit, total)
 
 @app.post("/api/{game}/cards/bulk")
-def get_cards_bulk(game: str, body: dict = Body(...)):
+@limiter.limit("10/minute")
+def get_cards_bulk(request: Request, game: str, body: dict = Body(...)):
     if not has_game(game):
         raise HTTPException(404, "Jogo não encontrado")
     method = body.get("method")
@@ -145,14 +164,16 @@ def get_cards_bulk(game: str, body: dict = Body(...)):
     }
 
 @app.get("/api/{game}/cards/random")
-def get_random_card(game: str):
+@limiter.limit("60/minute")
+def get_random_card(game: str, request: Request):
     if not has_game(game):
         raise HTTPException(404, "Jogo não encontrado")
     data = random_doc(GAME_CONFIG[game]["collection"])
     return {"data": data}
 
 @app.get("/api/{game}/cards/lookup")
-def get_card_by_id_or_name(game: str, q: str):
+@limiter.limit("60/minute")
+def get_card_by_id_or_name(game: str, q: str, request: Request):
     if not has_game(game):
         raise HTTPException(404, "Jogo não encontrado")
     collection = GAME_CONFIG[game]["collection"]
@@ -167,16 +188,11 @@ def get_card_by_id_or_name(game: str, q: str):
     return {"data": card}
 
 @app.get("/api/{game}/cards/{card_id}")
-def get_card_by_id(game: str, card_id: str):
+@limiter.limit("60/minute")
+def get_card_by_id(game: str, card_id: str, request: Request):
     if not has_game(game):
         raise HTTPException(404, "Jogo não encontrado")
     card = buscar_por_id(GAME_CONFIG[game]["collection"], card_id)
     if not card:
         raise HTTPException(404, "Card não encontrado")
     return {"data": card}
-
-@app.middleware("http")
-async def add_cache_headers(request: Request, call_next):
-    response = await call_next(request)
-    response.headers["Cache-Control"] = "s-maxage=300, stale-while-revalidate=600"
-    return response
