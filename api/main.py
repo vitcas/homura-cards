@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from fastapi import FastAPI, Depends, HTTPException, Request, Body
 from fastapi.middleware.cors import CORSMiddleware
 from api.security import api_key_guard
-from api.mango import (buscar_por_nome, contar_docs, buscar_docs, random_doc, buscar_por_id, buscar_bulk, get_meta)
+import api.mango as mango
 import api.filters as filters
 
 GAME_CONFIG = {
@@ -33,7 +33,7 @@ GAME_CONFIG = {
     "yugioh": {"collection": "yugioh_cards", "filter_fn": filters.apply_yugioh_filters}, 
 }
 
-app = FastAPI(title="Homura Cards API", version="1.0.4", dependencies=[Depends(api_key_guard)])
+app = FastAPI(title="Homura Cards API", version="1.0.5", dependencies=[Depends(api_key_guard)])
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -72,7 +72,7 @@ def paginated_response(data, page, limit, total):
 
 @app.get("/")
 def root():
-    return get_meta()
+    return mango.get_meta()
 
 @app.get("/api/{game}/cards")
 @limiter.limit("30/minute")
@@ -97,9 +97,17 @@ def get_cards(
         )
     config = GAME_CONFIG[game]
     query = config["filter_fn"](request.query_params)
-    total = contar_docs(config["collection"], query)
-    data = buscar_docs(config["collection"], query, page, limit, sort, order)
+    total = mango.contar_docs(config["collection"], query)
+    data = mango.buscar_docs(config["collection"], query, page, limit, sort, order)
     return paginated_response(data, page, limit, total)
+
+@app.get("/api/{game}/cards/random")
+@limiter.limit("60/minute")
+def get_random_card(game: str, request: Request):
+    if not has_game(game):
+        raise HTTPException(404, "Jogo não encontrado")
+    data = mango.random_doc(GAME_CONFIG[game]["collection"])
+    return {"data": data}
 
 @app.post("/api/{game}/cards/bulk")
 @limiter.limit("10/minute")
@@ -153,7 +161,7 @@ def get_cards_bulk(request: Request, game: str, body: dict = Body(...)):
             "data": []
         }
     collection = GAME_CONFIG[game]["collection"]
-    result = buscar_bulk(
+    result = mango.buscar_bulk(
         collection,
         method,
         values
@@ -163,13 +171,38 @@ def get_cards_bulk(request: Request, game: str, body: dict = Body(...)):
         **result
     }
 
-@app.get("/api/{game}/cards/random")
-@limiter.limit("60/minute")
-def get_random_card(game: str, request: Request):
+@app.post("/api/{game}/cards/bulk/v2")
+@limiter.limit("10/minute")
+def get_cards_bulk_v2(request: Request,game: str,body: dict = Body(...)):
     if not has_game(game):
-        raise HTTPException(404, "Jogo não encontrado")
-    data = random_doc(GAME_CONFIG[game]["collection"])
-    return {"data": data}
+        raise HTTPException(
+            status_code=404,
+            detail="Jogo não encontrado"
+        )
+    values = body.get("values")
+    if not isinstance(values, list):
+        raise HTTPException(
+            status_code=400,
+            detail="Envie um JSON com lista 'values'"
+        )
+    if not values:
+        return {
+            "count": 0,
+            "found": 0,
+            "not_found": [],
+            "data": []
+        }
+    if not all(isinstance(value, dict) for value in values):
+        raise HTTPException(
+            status_code=400,
+            detail="Todos os valores de 'values' devem ser objetos"
+        )
+    collection = GAME_CONFIG[game]["collection"]
+    result = mango.buscar_bulk_v2(
+        collection,
+        values
+    )
+    return result
 
 @app.get("/api/{game}/cards/lookup")
 @limiter.limit("60/minute")
@@ -178,11 +211,11 @@ def get_card_by_id_or_name(game: str, q: str, request: Request):
         raise HTTPException(404, "Jogo não encontrado")
     collection = GAME_CONFIG[game]["collection"]
     # tenta ID primeiro
-    card = buscar_por_id(collection, q)
+    card = mango.buscar_por_id(collection, q)
     if card:
         return {"data": card}
     # fallback para nome
-    card = buscar_por_nome(collection, q)
+    card = mango.buscar_por_nome(collection, q)
     if not card:
         raise HTTPException(404, "Card não encontrado")
     return {"data": card}
@@ -192,7 +225,7 @@ def get_card_by_id_or_name(game: str, q: str, request: Request):
 def get_card_by_id(game: str, card_id: str, request: Request):
     if not has_game(game):
         raise HTTPException(404, "Jogo não encontrado")
-    card = buscar_por_id(GAME_CONFIG[game]["collection"], card_id)
+    card = mango.buscar_por_id(GAME_CONFIG[game]["collection"], card_id)
     if not card:
         raise HTTPException(404, "Card não encontrado")
     return {"data": card}

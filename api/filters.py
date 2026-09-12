@@ -1,5 +1,4 @@
 # filters.py
-
 ALLOWED_FILTERS = {
     "sorcery": {
         "name", "type", "rarity", "element",

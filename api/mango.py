@@ -493,3 +493,321 @@ def buscar_bulk(collection_name, method, values):
         "not_found": not_found,
         "data": data
     }
+
+def buscar_bulk_v2(collection_name, criteria_list):
+    """
+    Bulk V2 genérico e seguro.
+
+    Cada item de criteria_list representa uma busca independente.
+
+    Exemplo:
+
+    {
+        "name": {
+            "regex": "^Charmander$",
+            "options": "i"
+        },
+        "set.set_code": "MEW",
+        "code": {
+            "regex": "004$"
+        }
+    }
+
+    Regras permitidas:
+
+    Valor simples:
+        "name": "Charmander"
+
+    Regex:
+        "name": {
+            "regex": "^Charmander$",
+            "options": "i"
+        }
+
+    Nenhum operador MongoDB é aceito diretamente.
+
+    Todos os critérios do mesmo objeto são combinados
+    com AND.
+
+    Todas as buscas são executadas em uma única consulta MongoDB.
+    """
+
+    collection = get_collection(collection_name)
+
+    # ---------------------------------------------------------
+    # Converte um critério recebido para uma condição MongoDB
+    # ---------------------------------------------------------
+
+    def build_condition(value):
+
+        # Valor simples
+        if isinstance(value, (str, int, float, bool)):
+            if isinstance(value, str):
+                value = value.strip()
+
+            return value
+
+        # Critério especial de regex
+        if isinstance(value, dict):
+
+            allowed_keys = {"regex", "options"}
+
+            # Não permite nenhuma outra chave
+            if not set(value.keys()).issubset(allowed_keys):
+                raise ValueError(
+                    "Critério de objeto inválido. "
+                    "Use apenas 'regex' e 'options'."
+                )
+
+            regex = value.get("regex")
+
+            if not isinstance(regex, str):
+                raise ValueError(
+                    "'regex' deve ser uma string."
+                )
+
+            options = value.get("options", "")
+
+            if not isinstance(options, str):
+                raise ValueError(
+                    "'options' deve ser uma string."
+                )
+
+            # Só permite opções do Mongo que fazem sentido aqui
+            allowed_options = set("imsx")
+
+            if any(option not in allowed_options for option in options):
+                raise ValueError(
+                    "Opção de regex inválida. "
+                    "Use apenas: i, m, s, x."
+                )
+
+            return {
+                "$regex": regex,
+                "$options": options
+            }
+
+        raise ValueError(
+            "Valor de critério inválido."
+        )
+
+    # ---------------------------------------------------------
+    # Monta uma query para cada item
+    # ---------------------------------------------------------
+
+    queries = []
+
+    for criteria in criteria_list:
+
+        if not criteria:
+            raise ValueError(
+                "Cada item de 'values' deve possuir pelo menos "
+                "um critério."
+            )
+
+        if not isinstance(criteria, dict):
+            raise ValueError(
+                "Cada item de 'values' deve ser um objeto."
+            )
+
+        query = {}
+
+        for field, value in criteria.items():
+
+            if not isinstance(field, str):
+                raise ValueError(
+                    "Os nomes dos campos devem ser strings."
+                )
+
+            field = field.strip()
+
+            if not field:
+                raise ValueError(
+                    "Nome de campo não pode ser vazio."
+                )
+
+            # Impede tentativa de injetar operador Mongo
+            if field.startswith("$") or ".$" in field:
+                raise ValueError(
+                    f"Campo inválido: {field}"
+                )
+
+            if value is None:
+                continue
+
+            query[field] = build_condition(value)
+
+        if not query:
+            raise ValueError(
+                "Nenhum critério válido foi informado."
+            )
+
+        queries.append(query)
+
+    # ---------------------------------------------------------
+    # Uma única consulta ao MongoDB
+    # ---------------------------------------------------------
+
+    mongo_query = {
+        "$or": queries
+    }
+
+    docs = list(
+        collection.find(
+            mongo_query,
+            {"_id": 0}
+        )
+    )
+
+    # ---------------------------------------------------------
+    # Verifica se um documento corresponde a um critério
+    # ---------------------------------------------------------
+
+    def get_nested_value(doc, field):
+        """
+        Resolve campos como:
+
+        set.set_code
+        pokemon.stage
+        card.data.code
+        """
+
+        current = doc
+
+        for part in field.split("."):
+
+            if not isinstance(current, dict):
+                return None
+
+            current = current.get(part)
+
+        return current
+
+    def matches_criteria(doc, criteria):
+
+        for field, expected in criteria.items():
+
+            if expected is None:
+                continue
+
+            current = get_nested_value(
+                doc,
+                field
+            )
+
+            # Regex controlado
+            if isinstance(expected, dict):
+
+                regex = expected.get("regex")
+                options = expected.get("options", "")
+
+                if current is None:
+                    return False
+
+                flags = 0
+
+                if "i" in options:
+                    flags |= re.IGNORECASE
+
+                if "m" in options:
+                    flags |= re.MULTILINE
+
+                if "s" in options:
+                    flags |= re.DOTALL
+
+                if "x" in options:
+                    flags |= re.VERBOSE
+
+                try:
+                    if not re.search(
+                        regex,
+                        str(current),
+                        flags
+                    ):
+                        return False
+
+                except re.error:
+                    return False
+
+            # Valor simples
+            else:
+
+                if isinstance(expected, str):
+
+                    if current is None:
+                        return False
+
+                    if (
+                        str(current).strip().lower()
+                        != expected.strip().lower()
+                    ):
+                        return False
+
+                else:
+
+                    if current != expected:
+                        return False
+
+        return True
+
+    # ---------------------------------------------------------
+    # Agrupa os documentos encontrados por query
+    # ---------------------------------------------------------
+
+    grouped = {
+        index: []
+        for index in range(len(criteria_list))
+    }
+
+    for doc in docs:
+
+        for index, criteria in enumerate(criteria_list):
+
+            if matches_criteria(
+                doc,
+                criteria
+            ):
+                grouped[index].append(doc)
+
+    # ---------------------------------------------------------
+    # Resultado preservando a ordem original
+    # ---------------------------------------------------------
+
+    data = []
+    not_found = []
+
+    for index, criteria in enumerate(criteria_list):
+
+        matches = grouped[index]
+
+        if not matches:
+
+            not_found.append(criteria)
+
+            data.append({
+                "query": criteria,
+                "data": None
+            })
+
+            continue
+
+        # Mantém a lógica existente:
+        # seleciona a variante com menor preço
+        card = select_card_by_lowest_price(
+            matches
+        )
+
+        data.append({
+            "query": criteria,
+            "data": format_card(
+                collection_name,
+                card
+            )
+        })
+
+    return {
+        "count": len(criteria_list),
+        "found": len(criteria_list) - len(not_found),
+        "not_found": not_found,
+        "data": data
+    }
