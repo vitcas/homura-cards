@@ -211,17 +211,17 @@ def apply_yugioh_filters(args):
     if args.get("frameType"):
         q["frameType"] = {"$regex": args["frameType"], "$options": "i"}
     if args.get("set"):
-        q["card_sets.set_code"] = {"$regex": args["set"], "$options": "i"}
+        q["variants.set_code"] = {"$regex": args["set"], "$options": "i"}
     if args.get("rarity"):
-        q["card_sets.set_rarity"] = args["rarity"]
+        q["variants.set_rarity"] = args["rarity"]
     return q
 
 def apply_swu_filters(args):
     q = {}
     if args.get("name"):
-        q["Name"] = {"$regex": args["name"], "$options": "i"}
+        q["name"] = {"$regex": args["name"], "$options": "i"}
     if args.get("set"):
-        q["Set"] = {"$regex": args["set"], "$options": "i"}
+        q["set.set_code"] = args["set"]
     return q
 
 def apply_digimon_filters(args):

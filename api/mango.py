@@ -40,54 +40,24 @@ def touch_collection(collection_name):
 
 def buscar_por_id(collection_name, card_id):
     collection = get_collection(collection_name)
-
     query = {}
-
-    # Yu-Gi-Oh → id é número
-    if collection_name == "yugioh_cards":
-        try:
-            query["id"] = int(card_id)
-        except (ValueError, TypeError):
-            return None
-
-    # FAB → usa unique_id
-    elif collection_name == "fab_cards":
-        query["unique_id"] = card_id
-
-    # SWU → id é Set-Number
-    elif collection_name == "swu_cards":
-        if "-" in card_id:
-            set_code, number = card_id.split("-", 1)
-            query["Set"] = set_code
-            query["Number"] = number
-        else:
-            return None
-
-    # Demais jogos → id normal
-    else:
-        query["id"] = card_id
-
+    query["id"] = card_id
     return collection.find_one(query, {"_id": 0})
 
 def buscar_por_nome(collection_name, name):
     if not name:
         return None
-
     collection = get_collection(collection_name)
-
     field_map = {
-        "swu_cards": "Title",
+        "swu_cards": "title",
     }
-
     field = field_map.get(collection_name, "name")
-
     query = {
         field: {
             "$regex": f"^{re.escape(name.strip())}$",
             "$options": "i",
         }
     }
-
     return collection.find_one(query, {"_id": 0})
 
 def contar_docs(collection_name, query):
@@ -110,7 +80,7 @@ def buscar_docs(collection_name,query,page,limit,sort=None,order="asc"):
         .limit(limit)
     )
     return [
-        format_card(collection_name, card)
+        card
         for card in cursor
     ]
 
@@ -123,152 +93,10 @@ def random_doc(collection_name):
         ])
     )
     return (
-        format_card(collection_name, docs[0])
+        docs[0]
         if docs
         else None
     )
-
-def format_card(collec, card):
-    if collec == "yugioh":
-        return format_yugi(card)
-    if collec == "fab":
-        return format_fab(card)
-    if collec == "star-wars":
-        return format_swu(card)
-    return card  # fallback
-
-def format_yugi(card):
-    formatted = {
-        "id": str(card.get("id")),
-        "name": card.get("name"),
-        "type": card.get("type"), #Effect Monster
-        "frameType": card.get("frameType"), #effect, spell
-        "attribute": card.get("attribute"),
-        "race": card.get("race"),
-        "level": card.get("level"),
-        "atk": card.get("atk"),
-        "def": card.get("def"),
-        "archetype": card.get("archetype"),
-        "effect": card.get("desc"),
-        "images": {"small": None, "large": None},
-        "variants": []
-    }
-    imgs = card.get("card_images", [])
-    if imgs:
-        formatted["images"] = {
-            "small": imgs[0].get("image_url_small"),
-            "large": imgs[0].get("image_url")
-        }
-    for s in card.get("card_sets", []):
-        formatted["variants"].append({
-            "set_code": s.get("set_code"),
-            "set_rarity": s.get("set_rarity"),
-            "set_price": s.get("set_price"),
-            "tcgplayerId": s.get("tcgplayerId"),
-            "juSTname": s.get("juSTname"),
-            "condition": s.get("condition"),
-            "language": s.get("language"),
-            "lowPrice": s.get("lowPrice"),
-            "midPrice": s.get("midPrice"),
-            "marketPrice": s.get("marketPrice"),
-            "highPrice": s.get("highPrice")
-        })
-    return formatted
-
-def format_fab(card):
-    formatted = {
-        "id": card.get("unique_id"),
-        "code": card.get("unique_id"),
-        "name": card.get("name"),
-        "color": card.get("color"),
-        "type": card.get("type_text"),
-        "types": card.get("types", []),
-        "traits": card.get("traits", []),
-        "keywords": card.get("card_keywords", []),
-        "cost": card.get("cost"),
-        "pitch": card.get("pitch"),
-        "power": card.get("power"),
-        "defense": card.get("defense"),
-        "hp": card.get("health"),
-        "intelligence": card.get("intelligence"),
-        "functional_text": card.get("functional_text"),
-        "functional_text_plain": card.get("functional_text_plain"),
-        "playedHorizontally": card.get("played_horizontally", False),
-        "legalities": {
-            "blitz": card.get("blitz_legal", False),
-            "classicConstructed": card.get("cc_legal", False),
-            "commoner": card.get("commoner_legal", False),
-            "upfBanned": card.get("upf_banned", False)
-        },
-        "variants": []
-    }
-    for p in card.get("printings", []):
-        formatted["variants"].append({
-            "set_code": p.get("set_id"),
-            "rarity": p.get("rarity"),
-            "foiling": p.get("foiling"),
-            "edition": p.get("edition"),
-            "artist": (p.get("artists") or [None])[0],
-            "image": p.get("image_url"),
-            "tcgplayerId": p.get("tcgplayer_product_id"),
-        })
-    img = formatted["variants"][0]["image"] if formatted["variants"] else None
-    formatted["images"] = {"small": img, "large": img}
-    return formatted
-
-def format_swu(card):
-    formatted = {
-        "id": None,
-        "name": card.get("Name"),
-        "subtitle": card.get("Subtitle"),
-        "type": card.get("Type"),
-        "aspects": card.get("Aspects"),
-        "traits": card.get("Traits"),
-        "arenas": card.get("Arenas"),
-        "cost": card.get("Cost"),
-        "power": card.get("Power"),
-        "hp": card.get("HP"),
-        "frontText": card.get("FrontText"),
-        "epicAction": card.get("EpicAction"),
-        "doubleSided": card.get("DoubleSided"),
-        "backText": card.get("BackText"),
-        "rarity": card.get("Rarity"),
-        "unique": card.get("Unique"),
-        "artist": card.get("Artist"),
-        "images": {},
-        "set": card.get("Set"),
-        "variants": []
-    }
-
-    # imagens
-    front = card.get("FrontArt")
-    back = card.get("BackArt")
-    if front:
-        formatted["images"] = {
-            "front": front,
-            "back": back,
-            "small": front,
-            "large": front
-        }
-
-    # variantes
-    variant = {
-        "type": card.get("VariantType"),
-        "marketPrice": card.get("MarketPrice"),
-        "lowPrice": card.get("LowPrice"),
-        "foilPrice": card.get("FoilPrice"),
-    }
-    variant = {k: v for k, v in variant.items() if v is not None}
-    if variant:
-        formatted["variants"] = [variant]
-
-    # id/code
-    set_code = card.get("Set")
-    number = card.get("Number")
-    if set_code and number:
-        formatted["id"] = f"{set_code}-{number}"
-
-    return formatted
 
 def get_variant_min_price(card):
     variants = card.get("variants") or []
@@ -481,10 +309,7 @@ def buscar_bulk(collection_name, method, values):
 
         data.append({
             "query": value,
-            "data": format_card(
-                collection_name,
-                card
-            )
+            "data": card
         })
 
     return {
@@ -799,10 +624,7 @@ def buscar_bulk_v2(collection_name, criteria_list):
 
         data.append({
             "query": criteria,
-            "data": format_card(
-                collection_name,
-                card
-            )
+            "data": card
         })
 
     return {
