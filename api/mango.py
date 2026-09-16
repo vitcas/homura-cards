@@ -36,7 +36,7 @@ def get_collection(collection_name):
 
 def get_meta():
     docs = list(
-        db.collection_meta.find({}, {"_id": 0})
+        db.tcg_collections.find({}, {"_id": 0})
     )
     return docs
 
