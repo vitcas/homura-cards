@@ -109,6 +109,30 @@ def get_random_card(game: str, request: Request):
     data = mango.random_doc(GAME_CONFIG[game]["collection"])
     return {"data": data}
 
+@app.get("/api/{game}/cards/random/v2")
+@limiter.limit("60/minute")
+def random_card_v2(game: str, request: Request):
+    config = GAME_CONFIG.get(game)
+    if not config:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Jogo não suportado: {game}"
+        )
+    collection_name = config["collection"]
+    try:
+        result = mango.random_doc_v2(collection_name)
+
+        return {
+            "game": game,
+            "collection": collection_name,
+            "data": result
+        }
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao buscar documentos aleatórios: {str(exc)}"
+        )
+
 @app.post("/api/{game}/cards/bulk")
 @limiter.limit("10/minute")
 def get_cards_bulk(request: Request, game: str, body: dict = Body(...)):

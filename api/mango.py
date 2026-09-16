@@ -30,7 +30,6 @@ def use_cluster(numero=1):
     return client[databa]
 
 db = use_cluster(1)
-#db_teste = use_cluster(2)
 
 def get_collection(collection_name):
     return db[collection_name]
@@ -107,6 +106,37 @@ def random_doc(collection_name):
         if docs
         else None
     )
+
+def random_doc_v2(collection_name):
+    db_principal = use_cluster(1)
+    db_teste = use_cluster(2)
+    # Sorteia um documento real no cluster principal
+    principal = db_principal[collection_name].aggregate(
+        [
+            {"$sample": {"size": 1}},
+            {"$project": {"_id": 0}}
+        ],
+        allowDiskUse=True
+    ).next()
+    # Identificador usado para localizar a mesma carta
+    card_id = principal.get("id")
+    if card_id is None:
+        return {
+            "principal": principal,
+            "teste": None,
+            "match": False,
+            "reason": "O documento sorteado não possui o campo 'id'."
+        }
+    # Busca a mesma carta no segundo cluster
+    teste = db_teste[collection_name].find_one(
+        {"id": card_id},
+        {"_id": 0}
+    )
+    return {
+        "principal": principal,
+        "secundario": teste,
+        "match": teste is not None
+    }
 
 def get_variant_min_price(card):
     variants = card.get("variants") or []
