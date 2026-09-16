@@ -13,14 +13,24 @@ MONGO_USR = os.getenv("MONGO_USR")
 MONGO_PWD = os.getenv("MONGO_PWD")
 pwd = quote_plus(MONGO_PWD)
 MONGO_CLUSTER = os.getenv("MONGO_CLUSTER")
-uri = (f"mongodb+srv://{MONGO_USR}:{pwd}@{MONGO_CLUSTER}/?retryWrites=true&w=majority")
-client = MongoClient(
-    uri,
-    maxPoolSize=20,
-    minPoolSize=5,
-    serverSelectionTimeoutMS=5000
-)
-db = client["tcg"]
+MONGO_CLUSTER2 = os.getenv("MONGO_CLUSTER2")
+
+def use_cluster(numero=1):
+    cluster = MONGO_CLUSTER if numero == 1 else MONGO_CLUSTER2
+    databa = "tcg" if numero == 1 else "cardumy"
+    if not cluster:
+        raise RuntimeError(f"MONGO_CLUSTER{'' if numero == 1 else '2'} não configurado.")
+    uri = (f"mongodb+srv://{MONGO_USR}:{pwd}@{cluster}/?retryWrites=true&w=majority")
+    client = MongoClient(
+        uri,
+        maxPoolSize=20,
+        minPoolSize=5,
+        serverSelectionTimeoutMS=5000
+    )
+    return client[databa]
+
+db = use_cluster(1)
+#db_teste = use_cluster(2)
 
 def get_collection(collection_name):
     return db[collection_name]

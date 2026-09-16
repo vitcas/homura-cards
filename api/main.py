@@ -16,7 +16,7 @@ GAME_CONFIG = {
     "cardfight-vanguard": {"collection": "vanguard_cards", "filter_fn": filters.apply_vanguard_filters},
     "cyberpunk": {"collection": "cyberpunk_cards", "filter_fn": filters.apply_cyberpunk_filters},
     "digimon": {"collection": "digimon_cards", "filter_fn": filters.apply_digimon_filters},
-    "dragon-ball-fusion": {"collection": "dragonball_cards", "filter_fn": filters.apply_dbs_filters},
+    "dragon-ball-fusion": {"collection": "dbsfusion_cards", "filter_fn": filters.apply_dbs_filters},
     "fab": {"collection": "fab_cards", "filter_fn": filters.apply_fab_filters},
     "godzilla": {"collection": "godzilla_cards", "filter_fn": filters.apply_godzilla_filters},
     "grand-archive": { "collection": "grandarchive_cards", "filter_fn": filters.apply_grandarchive_filters},

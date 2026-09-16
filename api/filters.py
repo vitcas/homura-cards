@@ -4,70 +4,55 @@ ALLOWED_FILTERS = {
         "name", "type", "rarity", "element",
         "subtype", "set", "finish", "product", "artist"
     },
-
     "one-piece": {
         "id", "code", "name", "rarity",
         "type", "color", "cost", "power", "family", "set"
     },
-
     "gundam": {
         "id", "code", "name", "rarity"
     },
-
     "union-arena": {
         "id", "code", "name", "rarity"
     },
-
     "riftbound": {
         "name", "rarity", "might", "energyCost",
         "powerCost", "cardType", "domain", "set"
     },
-
     "fab": {
         "name", "set"
     },
-
     "yugioh": {
         "id", "konami_id", "effect", "name",
         "attribute", "type", "frameType", "set", "rarity"
     },
-
     "star-wars": {
         "name", "set"
     },
-
     "digimon": {
         "id", "code", "name", "rarity",
         "type", "color", "set"
     },
-
     "pokemon": {
         "id", "code", "name", "rarity",
         "type", "set", "card_type", "stage", "artist"
     },
-
     "dragon-ball-fusion": {
         "id", "code", "name", "rarity",
         "type", "color", "cost", "power",
         "characterTraits", "set"
     },
-
     "lorcana": {
         "id", "code", "name", "rarity", "set"
     },
-
     "cardfight-vanguard": {
         "id", "code", "name", "set"
     },
-
     "universus": {
         "id", "code", "name", "set"
     },
-
     "grand-archive": {
         "id", "code", "name", "set"
     },
-
     "altered": {
         "id", "code", "name", "set"
     },
@@ -109,13 +94,13 @@ def apply_sorcery_filters(args):
         q["sets.name"] = {"$regex": args["set"], "$options": "i"}
     # Variant → finish (Standard, Foil)
     if args.get("finish"):
-        q["sets.variants.finish"] = args["finish"]
+        q["variants.finish"] = args["finish"]
     # Variant → product (Booster / Preconstructed_Deck)
     if args.get("product"):
-        q["sets.variants.product"] = {"$regex": args["product"], "$options": "i"}
+        q["variants.product"] = {"$regex": args["product"], "$options": "i"}
     # Variant → artist
     if args.get("artist"):
-        q["sets.variants.artist"] = {"$regex": args["artist"], "$options": "i"}
+        q["variants.artist"] = {"$regex": args["artist"], "$options": "i"}
     return q
 
 def apply_onepiece_filters(args):
@@ -191,7 +176,7 @@ def apply_fab_filters(args):
     if args.get("name"):
         q["name"] = {"$regex": args["name"], "$options": "i"}
     if args.get("set"):
-        q["printings.set_id"] = args["set"]
+        q["variants.set_id"] = args["set"]
     return q
 
 def apply_yugioh_filters(args):
@@ -210,6 +195,8 @@ def apply_yugioh_filters(args):
         q["type"] = {"$regex": args["type"], "$options": "i"}
     if args.get("frameType"):
         q["frameType"] = {"$regex": args["frameType"], "$options": "i"}
+    if args.get("code"):
+        q["variants.set_code"] = {"$regex": args["set"], "$options": "i"}
     if args.get("set"):
         q["variants.set_code"] = {"$regex": args["set"], "$options": "i"}
     if args.get("rarity"):
