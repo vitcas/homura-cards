@@ -110,6 +110,7 @@ def random_doc(collection_name):
 def random_doc_v2(collection_name):
     db_principal = use_cluster(1)
     db_teste = use_cluster(2)
+    db_teste.client.admin.command("ping")
     # Sorteia um documento real no cluster principal
     principal = db_principal[collection_name].aggregate(
         [

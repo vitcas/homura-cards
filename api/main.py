@@ -52,6 +52,15 @@ async def rate_limit_handler(request: Request, exc):
         headers={"Retry-After": "60"},
     )
 
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Erro interno do servidor"
+        }
+    )
+
 @app.middleware("http")
 async def add_cache_headers(request: Request, call_next):
     response = await call_next(request)
@@ -86,15 +95,6 @@ def get_cards(
     ):
     if not has_game(game):
         raise HTTPException(404, "Jogo não encontrado")
-    invalid_filters = filters.validate_filter_params(game, request.query_params)
-    if invalid_filters:
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "message": "Filtro não suportado para este jogo",
-                "filters": sorted(invalid_filters)
-            }
-        )
     config = GAME_CONFIG[game]
     query = config["filter_fn"](request.query_params)
     total = mango.contar_docs(config["collection"], query)
