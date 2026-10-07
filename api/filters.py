@@ -50,7 +50,7 @@ def apply_onepiece_filters(args):
     if args.get("family"):
         q["family"] = {"$regex": args["family"], "$options": "i"}
     if args.get("set"):
-        q["set.set_code"] = args["set"]
+        q["variants.set.set_code"] = args["set"]
     return q
 
 def apply_gundam_filters(args):
@@ -63,6 +63,8 @@ def apply_gundam_filters(args):
         q["name"] = {"$regex": args["name"], "$options": "i"}
     if args.get("rarity"):
         q["rarity"] = args["rarity"]
+    if args.get("set"):
+        q["variants.set.set_code"] = args["set"]
     return q
 
 def apply_unionarena_filters(args):
@@ -75,6 +77,8 @@ def apply_unionarena_filters(args):
         q["name"] = {"$regex": args["name"], "$options": "i"}
     if args.get("rarity"):
         q["rarity"] = args["rarity"]
+    if args.get("set"):
+        q["variants.set.set_code"] = args["set"]
     return q
 
 def apply_riftbound_filters(args):
@@ -95,6 +99,8 @@ def apply_riftbound_filters(args):
         q["domain"] = {"$regex": args["domain"], "$options": "i"}
     if args.get("set"):
         q["set.name"] = {"$regex": args["set"], "$options": "i"}
+    if args.get("setCode"):
+        q["variants.set.set_code"] = args["set"]
     return q
 
 def apply_fab_filters(args):
@@ -103,6 +109,8 @@ def apply_fab_filters(args):
         q["name"] = {"$regex": args["name"], "$options": "i"}
     if args.get("set"):
         q["variants.set_id"] = args["set"]
+    if args.get("setCode"):
+        q["variants.set.set_code"] = args["set"]
     return q
 
 def apply_yugioh_filters(args):
@@ -122,11 +130,13 @@ def apply_yugioh_filters(args):
     if args.get("frameType"):
         q["frameType"] = {"$regex": args["frameType"], "$options": "i"}
     if args.get("code"):
-        q["variants.set_code"] = {"$regex": args["set"], "$options": "i"}
+        q["variants.variant_code"] = {"$regex": args["set"], "$options": "i"}
+    if args.get("setName"):
+        q["variants.set_name"] = {"$regex": args["set"], "$options": "i"}
     if args.get("set"):
         q["variants.set_code"] = {"$regex": args["set"], "$options": "i"}
     if args.get("rarity"):
-        q["variants.set_rarity"] = args["rarity"]
+        q["variants.rarity"] = args["rarity"]
     return q
 
 def apply_swu_filters(args):
@@ -134,7 +144,7 @@ def apply_swu_filters(args):
     if args.get("name"):
         q["name"] = {"$regex": args["name"], "$options": "i"}
     if args.get("set"):
-        q["set.set_code"] = args["set"]
+        q["variants.set.set_code"] = args["set"]
     return q
 
 def apply_digimon_filters(args):
@@ -152,7 +162,7 @@ def apply_digimon_filters(args):
     if args.get("color"):
         q["color"] = {"$regex": args["color"], "$options": "i"}
     if args.get("set"):
-        q["set.set_code"] = args["set"]
+        q["variants.set.set_code"] = args["set"]
     return q
 
 def apply_pokemon_filters(args):
@@ -168,7 +178,7 @@ def apply_pokemon_filters(args):
     if args.get("pokemonType"):
         q["pokemonType"] = {"$regex": args["pokemonType"], "$options": "i"}
     if args.get("set_code"):
-        q["set.set_code"] = {"$regex": args["set_code"], "$options": "i"}
+        q["variants.set.set_code"] = {"$regex": args["set_code"], "$options": "i"}
     if args.get("set_name"):
         q["set.name"] = {"$regex": args["set_name"], "$options": "i"}
     if args.get("stage"):
@@ -200,12 +210,9 @@ def apply_dbs_filters(args):
     if args.get("power"):
         q["power"] = args["power"]
     if args.get("characterTraits"):
-        q["characterTraits"] = {
-            "$regex": args["characterTraits"],
-            "$options": "i"
-        }
+        q["characterTraits"] = {"$regex": args["characterTraits"], "$options": "i"}
     if args.get("set"):
-        q["set.set_code"] = args["set"]
+        q["variants.set.set_code"] = args["set"]
     return q
 
 def apply_lorcana_filters(args):
@@ -219,7 +226,7 @@ def apply_lorcana_filters(args):
     if args.get("rarity"):
         q["rarity"] = args["rarity"]
     if args.get("set"):
-        q["set.set_code"] = args["set"]
+        q["variants.set.set_code"] = args["set"]
     return q
 
 def apply_vanguard_filters(args):
@@ -231,7 +238,7 @@ def apply_vanguard_filters(args):
     if args.get("name"):
         q["name"] = {"$regex": args["name"], "$options": "i"}
     if args.get("set"):
-        q["set.set_code"] = args["set"]
+        q["variants.set.set_code"] = args["set"]
     return q
 
 def apply_universus_filters(args):
@@ -243,7 +250,7 @@ def apply_universus_filters(args):
     if args.get("name"):
         q["name"] = {"$regex": args["name"], "$options": "i"}
     if args.get("set"):
-        q["set.set_code"] = args["set"]
+        q["variants.set.set_code"] = args["set"]
     return q
 
 def apply_grandarchive_filters(args):
@@ -255,7 +262,7 @@ def apply_grandarchive_filters(args):
     if args.get("name"):
         q["name"] = {"$regex": args["name"], "$options": "i"}
     if args.get("set"):
-        q["set.set_code"] = args["set"]
+        q["variants.set.set_code"] = args["set"]
     return q
 
 def apply_altered_filters(args):
@@ -267,7 +274,7 @@ def apply_altered_filters(args):
     if args.get("name"):
         q["name"] = {"$regex": args["name"], "$options": "i"}
     if args.get("set"):
-        q["set.set_code"] = args["set"]
+        q["variants.set.set_code"] = args["set"]
     return q
 
 def apply_cyberpunk_filters(args):
@@ -279,7 +286,7 @@ def apply_cyberpunk_filters(args):
     if args.get("name"):
         q["name"] = {"$regex": args["name"], "$options": "i"}
     if args.get("set"):
-        q["set.set_code"] = args["set"]
+        q["variants.set.set_code"] = args["set"]
     return q
 
 def apply_hololive_filters(args):
@@ -291,7 +298,7 @@ def apply_hololive_filters(args):
     if args.get("name"):
         q["name"] = {"$regex": args["name"], "$options": "i"}
     if args.get("set"):
-        q["set.set_code"] = args["set"]
+        q["variants.set.set_code"] = args["set"]
     return q
 
 def apply_godzilla_filters(args):
@@ -303,5 +310,5 @@ def apply_godzilla_filters(args):
     if args.get("name"):
         q["name"] = {"$regex": args["name"], "$options": "i"}
     if args.get("set"):
-        q["set.set_code"] = args["set"]
+        q["variants.set.set_code"] = args["set"]
     return q
