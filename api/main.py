@@ -5,7 +5,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from fastapi.responses import JSONResponse
-from fastapi import FastAPI, Depends, HTTPException, Request, Body
+from fastapi import FastAPI, Depends, HTTPException, Request, Body, Query
 from fastapi.middleware.cors import CORSMiddleware
 from api.security import api_key_guard
 import api.mango as mango
@@ -34,13 +34,7 @@ GAME_CONFIG = {
 }
 
 app = FastAPI(title="Homura Cards API", version="1.0.5", dependencies=[Depends(api_key_guard)])
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
@@ -103,35 +97,17 @@ def get_cards(
 
 @app.get("/api/{game}/cards/random")
 @limiter.limit("60/minute")
-def get_random_card(game: str, request: Request):
+def get_random_card( game: str, request: Request, sample_size: int = Query(1, ge=1, le=50)):
     if not has_game(game):
         raise HTTPException(404, "Jogo não encontrado")
-    data = mango.random_doc(GAME_CONFIG[game]["collection"])
-    return {"data": data}
-
-@app.get("/api/{game}/cards/random/v2")
-@limiter.limit("60/minute")
-def random_card_v2(game: str, request: Request):
-    config = GAME_CONFIG.get(game)
-    if not config:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Jogo não suportado: {game}"
-        )
-    collection_name = config["collection"]
-    try:
-        result = mango.random_doc_v2(collection_name)
-
-        return {
-            "game": game,
-            "collection": collection_name,
-            "data": result
-        }
-    except Exception as exc:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Erro ao buscar documentos aleatórios: {str(exc)}"
-        )
+    data = mango.random_doc(
+        GAME_CONFIG[game]["collection"],
+        sample_size
+    )
+    return {
+        "count": len(data),
+        "data": data
+    }
 
 @app.post("/api/{game}/cards/bulk")
 @limiter.limit("10/minute")

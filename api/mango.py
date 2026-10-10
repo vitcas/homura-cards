@@ -35,9 +35,7 @@ def get_collection(collection_name):
     return db[collection_name]
 
 def get_meta():
-    docs = list(
-        db.tcg_collections.find({}, {"_id": 0})
-    )
+    docs = list(db.tcg_collections.find({}, {"_id": 0}))
     return docs
 
 def touch_collection(collection_name):
@@ -57,9 +55,7 @@ def buscar_por_nome(collection_name, name):
     if not name:
         return None
     collection = get_collection(collection_name)
-    field_map = {
-        "swu_cards": "title",
-    }
+    field_map = {"swu_cards": "title",}
     field = field_map.get(collection_name, "name")
     query = {
         field: {
@@ -83,61 +79,20 @@ def buscar_docs(collection_name,query,page,limit,sort=None,order="asc"):
             else DESCENDING
         )
         cursor = cursor.sort(sort, direction)
-    cursor = (
-        cursor
-        .skip((page - 1) * limit)
-        .limit(limit)
-    )
+    cursor = (cursor.skip((page - 1) * limit).limit(limit))
     return [
         card
         for card in cursor
     ]
 
-def random_doc(collection_name):
+def random_doc(collection_name, sample_size=1):
     collection = get_collection(collection_name)
-    docs = list(
+    return list(
         collection.aggregate([
-            {"$sample": {"size": 1}},
+            {"$sample": {"size": sample_size}},
             {"$project": {"_id": 0}}
         ])
     )
-    return (
-        docs[0]
-        if docs
-        else None
-    )
-
-def random_doc_v2(collection_name):
-    db_principal = use_cluster(1)
-    db_teste = use_cluster(2)
-    db_teste.client.admin.command("ping")
-    # Sorteia um documento real no cluster principal
-    principal = db_principal[collection_name].aggregate(
-        [
-            {"$sample": {"size": 1}},
-            {"$project": {"_id": 0}}
-        ],
-        allowDiskUse=True
-    ).next()
-    # Identificador usado para localizar a mesma carta
-    card_id = principal.get("id")
-    if card_id is None:
-        return {
-            "principal": principal,
-            "teste": None,
-            "match": False,
-            "reason": "O documento sorteado não possui o campo 'id'."
-        }
-    # Busca a mesma carta no segundo cluster
-    teste = db_teste[collection_name].find_one(
-        {"id": card_id},
-        {"_id": 0}
-    )
-    return {
-        "principal": principal,
-        "secundario": teste,
-        "match": teste is not None
-    }
 
 def get_variant_min_price(card):
     variants = card.get("variants") or []
@@ -151,11 +106,9 @@ def get_variant_min_price(card):
 def select_card_by_lowest_price(cards):
     """
     Escolhe o card que possui o menor preço válido em variants.
-
     Considera apenas preços:
     - numéricos
     - maiores que zero
-
     Se nenhum card tiver preço válido, retorna o primeiro
     de forma determinística.
     """
@@ -189,7 +142,6 @@ def buscar_bulk(collection_name, method, values):
         }
     elif method == "name":
         field = "Title" if collection_name == "swu_cards" else "name"
-
         query = {
             "$or": [
                 {
@@ -201,19 +153,15 @@ def buscar_bulk(collection_name, method, values):
                 for value in values
             ]
         }
-
     elif method == "id":
-
         # Yu-Gi-Oh → id numérico
         if collection_name == "yugioh_cards":
             numeric_ids = []
-
             for value in values:
                 try:
                     numeric_ids.append(int(value))
                 except (ValueError, TypeError):
                     pass
-
             if not numeric_ids:
                 return {
                     "count": len(values),
@@ -227,13 +175,11 @@ def buscar_bulk(collection_name, method, values):
                         for value in values
                     ]
                 }
-
             query = {
                 "id": {
                     "$in": numeric_ids
                 }
             }
-
         # FAB → unique_id
         elif collection_name == "fab_cards":
             query = {
@@ -241,22 +187,17 @@ def buscar_bulk(collection_name, method, values):
                     "$in": values
                 }
             }
-
         # SWU → Set + Number
         elif collection_name == "swu_cards":
             conditions = []
-
             for value in values:
                 if "-" not in value:
                     continue
-
                 set_code, number = value.split("-", 1)
-
                 conditions.append({
                     "Set": set_code,
                     "Number": number
                 })
-
             if not conditions:
                 return {
                     "count": len(values),
@@ -270,11 +211,9 @@ def buscar_bulk(collection_name, method, values):
                         for value in values
                     ]
                 }
-
             query = {
                 "$or": conditions
             }
-
         # Demais jogos → id normal
         else:
             query = {
@@ -282,10 +221,8 @@ def buscar_bulk(collection_name, method, values):
                     "$in": values
                 }
             }
-
     else:
         raise ValueError(f"Método de busca inválido: {method}")
-
     # UMA consulta ao Mongo
     docs = list(
         collection.find(
@@ -293,66 +230,41 @@ def buscar_bulk(collection_name, method, values):
             {"_id": 0}
         )
     )
-
     # Agrupa documentos pelo valor pesquisado
     grouped = {}
-
     for doc in docs:
-
         if method == "code":
             key = doc.get("code")
-
         elif method == "name":
             field = "Title" if collection_name == "swu_cards" else "name"
             key = doc.get(field)
-
         elif method == "id":
-
             if collection_name == "yugioh_cards":
                 key = str(doc.get("id"))
-
             elif collection_name == "fab_cards":
                 key = doc.get("unique_id")
-
             elif collection_name == "swu_cards":
                 key = f"{doc.get('Set')}-{doc.get('Number')}"
-
             else:
                 key = doc.get("id")
-
         if key is not None:
             grouped.setdefault(
                 str(key).strip().lower(),
                 []
             ).append(doc)
-
     # Monta resultado na ordem original
     data = []
     not_found = []
-
     for value in values:
         key = value.strip().lower()
-
         matches = grouped.get(key, [])
-
         if not matches:
             not_found.append(value)
-
-            data.append({
-                "query": value,
-                "data": None
-            })
-
+            data.append({"query": value,"data": None})
             continue
-
         # Escolhe o menor preço válido
         card = select_card_by_lowest_price(matches)
-
-        data.append({
-            "query": value,
-            "data": card
-        })
-
+        data.append({"query": value,"data": card})
     return {
         "count": len(values),
         "found": len(values) - len(not_found),
@@ -389,35 +301,23 @@ def buscar_bulk_v2(collection_name, criteria_list):
             "regex": "^Charmander$",
             "options": "i"
         }
-
     Nenhum operador MongoDB é aceito diretamente.
-
-    Todos os critérios do mesmo objeto são combinados
-    com AND.
-
+    Todos os critérios do mesmo objeto são combinados com AND.
     Todas as buscas são executadas em uma única consulta MongoDB.
     """
-
     collection = get_collection(collection_name)
-
     # ---------------------------------------------------------
     # Converte um critério recebido para uma condição MongoDB
     # ---------------------------------------------------------
-
     def build_condition(value):
-
         # Valor simples
         if isinstance(value, (str, int, float, bool)):
             if isinstance(value, str):
                 value = value.strip()
-
             return value
-
         # Critério especial de regex
         if isinstance(value, dict):
-
             allowed_keys = {"regex", "options"}
-
             # Não permite nenhuma outra chave
             if not set(value.keys()).issubset(allowed_keys):
                 raise ValueError(
