@@ -34,7 +34,7 @@ db = use_cluster(1)
 def get_collection(collection_name):
     return db[collection_name]
 
-def get_meta():
+def get_report():
     docs = list(db.tcg_collections.find({}, {"_id": 0}))
     return docs
 
@@ -44,26 +44,6 @@ def touch_collection(collection_name):
         {"$set": {"last_update": datetime.utcnow()}},
         upsert=True
     )
-
-def buscar_por_id(collection_name, card_id):
-    collection = get_collection(collection_name)
-    query = {}
-    query["id"] = card_id
-    return collection.find_one(query, {"_id": 0})
-
-def buscar_por_nome(collection_name, name):
-    if not name:
-        return None
-    collection = get_collection(collection_name)
-    field_map = {"swu_cards": "title",}
-    field = field_map.get(collection_name, "name")
-    query = {
-        field: {
-            "$regex": f"^{re.escape(name.strip())}$",
-            "$options": "i",
-        }
-    }
-    return collection.find_one(query, {"_id": 0})
 
 def contar_docs(collection_name, query):
     collection = get_collection(collection_name)

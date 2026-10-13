@@ -75,7 +75,7 @@ def paginated_response(data, page, limit, total):
 
 @app.get("/")
 def root():
-    return mango.get_meta()
+    return mango.get_report()
 
 @app.get("/api/{game}/cards")
 @limiter.limit("30/minute")
@@ -203,22 +203,6 @@ def get_cards_bulk_v2(request: Request,game: str,body: dict = Body(...)):
         values
     )
     return result
-
-@app.get("/api/{game}/cards/lookup")
-@limiter.limit("60/minute")
-def get_card_by_id_or_name(game: str, q: str, request: Request):
-    if not has_game(game):
-        raise HTTPException(404, "Jogo não encontrado")
-    collection = GAME_CONFIG[game]["collection"]
-    # tenta ID primeiro
-    card = mango.buscar_por_id(collection, q)
-    if card:
-        return {"data": card}
-    # fallback para nome
-    card = mango.buscar_por_nome(collection, q)
-    if not card:
-        raise HTTPException(404, "Card não encontrado")
-    return {"data": card}
 
 @app.get("/api/{game}/cards/{card_id}")
 @limiter.limit("60/minute")
