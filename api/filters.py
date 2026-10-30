@@ -1,642 +1,260 @@
-# filters.py
+import re
+
+
+def _values(args, key):
+    """Lê parâmetros repetidos e valores separados por vírgula."""
+    if hasattr(args, "getlist"):
+        raw = args.getlist(key)
+    else:
+        raw = args.get(key, [])
+        if not isinstance(raw, (list, tuple)):
+            raw = [raw]
+
+    values = []
+    for item in raw:
+        if item is None:
+            continue
+        values.extend(part.strip() for part in str(item).split(",") if part.strip())
+
+    return list(dict.fromkeys(values))
+
+
+def _regex(values):
+    pattern = "|".join(f"(?:{value})" for value in values)
+    return {"$regex": pattern, "$options": "i"}
+
+
+def _build_filters(args, fields, set_fields=None):
+    """
+    fields: {parametro: (campo_mongo, tipo)}
+    tipo: regex, array ou exact
+    """
+    q = {}
+    and_conditions = []
+
+    for param, (field, kind) in fields.items():
+        values = _values(args, param)
+        all_values = _values(args, f"{param}__all")
+
+        if not values and not all_values:
+            continue
+
+        if kind == "array":
+            if values:
+                q[field] = {"$in": [re.compile(value, re.I) for value in values]}
+            if all_values:
+                and_conditions.append({
+                    field: {"$all": [re.compile(value, re.I) for value in all_values]}
+                })
+        elif all_values:
+            # __all é reservado para campos de array.
+            continue
+        elif kind == "exact":
+            q[field] = values[0] if len(values) == 1 else {"$in": values}
+        else:
+            q[field] = _regex(values)
+
+    if set_fields:
+        set_values = _values(args, "set")
+        if set_values:
+            and_conditions.append({
+                "$or": [{field: _regex(set_values)} for field in set_fields]
+            })
+
+    if and_conditions:
+        q["$and"] = and_conditions
+
+    return q
+
+
 def apply_altered_filters(args):
-    q = {}
-    if args.get("id"):
-        q["id"] = {"$regex": args["id"], "$options": "i"}
-    if args.get("code"):
-        q["code"] = {"$regex": args["code"], "$options": "i"}
-    if args.get("name"):
-        q["name"] = {"$regex": args["name"], "$options": "i"}
-    if args.get("rarity"):
-        q["rarity"] = {"$regex": args["rarity"], "$options": "i"}
-    if args.get("type"):
-        q["type"] = {"$regex": args["type"], "$options": "i"}
-    if args.get("faction"):
-        q["faction.name"] = {"$regex": args["faction"], "$options": "i"}
-    if args.get("faction_code"):
-        q["faction.code"] = {"$regex": args["faction_code"], "$options": "i"}
-    if args.get("product"):
-        q["product.name"] = {"$regex": args["product"], "$options": "i"}
-    if args.get("illustrator"):
-        q["illustrator"] = {"$regex": args["illustrator"], "$options": "i"}
-    if args.get("set"):
-        q["$or"] = [
-            {
-                "variants.set.set_code": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            },
-            {
-                "variants.set.set_name": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            },
-            {
-                "variants.set.set_internal_code": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            }
-        ]
-    return q
+    return _build_filters(args, {
+        "id": ("id", "regex"), "code": ("code", "regex"),
+        "name": ("name", "regex"), "rarity": ("rarity", "regex"),
+        "type": ("type", "regex"), "faction": ("faction.name", "regex"),
+        "faction_code": ("faction.code", "regex"),
+        "product": ("product.name", "regex"),
+        "illustrator": ("illustrator", "regex"),
+    }, ["variants.set.set_code", "variants.set.set_name",
+        "variants.set.set_internal_code"])
+
+
 def apply_cyberpunk_filters(args):
-    q = {}
-    if args.get("id"):
-        q["id"] = {"$regex": args["id"], "$options": "i"}
-    if args.get("code"):
-        q["code"] = {"$regex": args["code"], "$options": "i"}
-    if args.get("name"):
-        q["name"] = {"$regex": args["name"], "$options": "i"}
-    if args.get("rarity"):
-        q["rarity"] = {"$regex": args["rarity"], "$options": "i"}
-    if args.get("color"):
-        q["color"] = {"$regex": args["color"], "$options": "i"}
-    if args.get("card_type"):
-        q["card_type"] = {"$regex": args["card_type"], "$options": "i"}
-    if args.get("artist"):
-        q["artist"] = {"$regex": args["artist"], "$options": "i"}
-    if args.get("classification"):
-        q["classifications"] = {
-            "$regex": args["classification"],
-            "$options": "i"
-        }
-    if args.get("set"):
-        q["$or"] = [
-            {
-                "variants.set.code": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            },
-            {
-                "variants.set.name": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            }
-        ]
-    return q
+    return _build_filters(args, {
+        "id": ("id", "regex"), "code": ("code", "regex"),
+        "name": ("name", "regex"), "rarity": ("rarity", "regex"),
+        "color": ("color", "regex"), "card_type": ("card_type", "regex"),
+        "artist": ("artist", "regex"),
+        "classification": ("classifications", "array"),
+    }, ["variants.set.code", "variants.set.name"])
+
+
 def apply_dbs_filters(args):
-    q = {}
-    if args.get("id"):
-        q["id"] = {"$regex": args["id"], "$options": "i"}
-    if args.get("code"):
-        q["code"] = {"$regex": args["code"], "$options": "i"}
-    if args.get("name"):
-        q["name"] = {"$regex": args["name"], "$options": "i"}
-    if args.get("rarity"):
-        q["rarity"] = args["rarity"]
-    if args.get("type"):
-        q["type"] = {"$regex": args["type"], "$options": "i"}
-    if args.get("color"):
-        q["color"] = {"$regex": args["color"], "$options": "i"}
-    if args.get("cost"):
-        q["cost"] = args["cost"]
-    if args.get("power"):
-        q["power"] = args["power"]
-    if args.get("characterTraits"):
-        q["characterTraits"] = {
-            "$regex": args["characterTraits"],
-            "$options": "i"
-        }
-    if args.get("set"):
-        q["$or"] = [
-            {
-                "variants.set.set_code": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            },
-            {
-                "variants.set.name": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            }
-        ]
-    return q
+    return _build_filters(args, {
+        "id": ("id", "regex"), "code": ("code", "regex"),
+        "name": ("name", "regex"), "rarity": ("rarity", "exact"),
+        "type": ("type", "regex"), "color": ("color", "regex"),
+        "cost": ("cost", "exact"), "power": ("power", "exact"),
+        "characterTraits": ("characterTraits", "regex"),
+    }, ["variants.set.set_code", "variants.set.name"])
+
+
 def apply_digimon_filters(args):
-    q = {}
-    if args.get("id"):
-        q["id"] = {"$regex": args["id"], "$options": "i"}
-    if args.get("code"):
-        q["code"] = {"$regex": args["code"], "$options": "i"}
-    if args.get("name"):
-        q["name"] = {"$regex": args["name"], "$options": "i"}
-    if args.get("rarity"):
-        q["rarity"] = {"$regex": args["rarity"], "$options": "i"}
-    if args.get("type"):
-        q["type"] = {"$regex": args["type"], "$options": "i"}
-    if args.get("color"):
-        q["color"] = {"$regex": args["color"], "$options": "i"}
-    if args.get("artist"):
-        q["artist"] = {"$regex": args["artist"], "$options": "i"}
-    if args.get("set"):
-        q["$or"] = [
-            {
-                "variants.set.set_code": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            },
-            {
-                "variants.set.name": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            }
-        ]
-    return q
+    return _build_filters(args, {
+        "id": ("id", "regex"), "code": ("code", "regex"),
+        "name": ("name", "regex"), "rarity": ("rarity", "regex"),
+        "type": ("type", "regex"), "color": ("color", "regex"),
+        "artist": ("artist", "regex"),
+    }, ["variants.set.set_code", "variants.set.name"])
+
+
 def apply_fab_filters(args):
-    q = {}
-    if args.get("name"):
-        q["name"] = {"$regex": args["name"], "$options": "i"}
-    if args.get("color"):
-        q["color"] = {"$regex": args["color"], "$options": "i"}
-    if args.get("type"):
-        q["types"] = {"$regex": args["type"], "$options": "i"}
-    if args.get("set"):
-        q["variants.set.set_code"] = {
-            "$regex": args["set"],
-            "$options": "i"
-        }
-    return q
+    return _build_filters(args, {
+        "name": ("name", "regex"), "color": ("color", "regex"),
+        "type": ("types", "array"), "set": ("variants.set.set_code", "regex"),
+    })
+
+
 def apply_godzilla_filters(args):
-    q = {}
-    if args.get("id"):
-        q["id"] = {"$regex": args["id"], "$options": "i"}
-    if args.get("code"):
-        q["code"] = {"$regex": args["code"], "$options": "i"}
-    if args.get("name"):
-        q["name"] = {"$regex": args["name"], "$options": "i"}
-    if args.get("rarity"):
-        q["rarity"] = {"$regex": args["rarity"], "$options": "i"}
-    if args.get("type"):
-        q["type"] = {"$regex": args["type"], "$options": "i"}
-    if args.get("color"):
-        q["color"] = {"$regex": args["color"], "$options": "i"}
-    if args.get("grade"):
-        q["grade"] = {"$regex": args["grade"], "$options": "i"}
-    if args.get("set"):
-        q["$or"] = [
-            {
-                "variants.set.set_code": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            },
-            {
-                "variants.set.name": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            }
-        ]
-    return q
+    return _build_filters(args, {
+        "id": ("id", "regex"), "code": ("code", "regex"),
+        "name": ("name", "regex"), "rarity": ("rarity", "regex"),
+        "type": ("type", "regex"), "color": ("color", "regex"),
+        "grade": ("grade", "regex"),
+    }, ["variants.set.set_code", "variants.set.name"])
+
+
 def apply_grandarchive_filters(args):
-    q = {}
-    if args.get("id"):
-        q["id"] = {"$regex": args["id"], "$options": "i"}
-    if args.get("code"):
-        q["code"] = {"$regex": args["code"], "$options": "i"}
-    if args.get("name"):
-        q["name"] = {"$regex": args["name"], "$options": "i"}
-    if args.get("rarity"):
-        q["rarity"] = args["rarity"]
-    if args.get("element"):
-        q["element"] = {"$regex": args["element"], "$options": "i"}
-    if args.get("type"):
-        q["types"] = {"$regex": args["type"], "$options": "i"}
-    if args.get("subtype"):
-        q["subtypes"] = {"$regex": args["subtype"], "$options": "i"}
-    if args.get("class"):
-        q["classes"] = {"$regex": args["class"], "$options": "i"}
-    if args.get("set"):
-        q["$or"] = [
-            {
-                "variants.set.set_code": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            },
-            {
-                "variants.set.name": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            }
-        ]
-    return q
+    return _build_filters(args, {
+        "id": ("id", "regex"), "code": ("code", "regex"),
+        "name": ("name", "regex"), "rarity": ("rarity", "exact"),
+        "element": ("element", "regex"), "type": ("types", "array"),
+        "subtype": ("subtypes", "array"), "class": ("classes", "array"),
+    }, ["variants.set.set_code", "variants.set.name"])
+
+
 def apply_gundam_filters(args):
-    q = {}
-    if args.get("id"):
-        q["id"] = {"$regex": args["id"], "$options": "i"}
-    if args.get("code"):
-        q["code"] = {"$regex": args["code"], "$options": "i"}
-    if args.get("name"):
-        q["name"] = {"$regex": args["name"], "$options": "i"}
-    if args.get("rarity"):
-        q["rarity"] = {"$regex": args["rarity"], "$options": "i"}
-    if args.get("cardType"):
-        q["cardType"] = {"$regex": args["cardType"], "$options": "i"}
-    if args.get("color"):
-        q["color"] = {"$regex": args["color"], "$options": "i"}
-    if args.get("zone"):
-        q["zone"] = {"$regex": args["zone"], "$options": "i"}
-    if args.get("trait"):
-        q["trait"] = {"$regex": args["trait"], "$options": "i"}
-    if args.get("source_title"):
-        q["source_title"] = {
-            "$regex": args["source_title"],
-            "$options": "i"
-        }
-    if args.get("set"):
-        q["$or"] = [
-            {
-                "variants.set.set_code": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            },
-            {
-                "variants.set.name": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            }
-        ]
-    return q
+    return _build_filters(args, {
+        "id": ("id", "regex"), "code": ("code", "regex"),
+        "name": ("name", "regex"), "rarity": ("rarity", "regex"),
+        "cardType": ("cardType", "regex"), "color": ("color", "regex"),
+        "zone": ("zone", "regex"), "trait": ("trait", "regex"),
+        "source_title": ("source_title", "regex"),
+    }, ["variants.set.set_code", "variants.set.name"])
+
+
 def apply_hololive_filters(args):
-    q = {}
-    if args.get("id"):
-        q["id"] = {"$regex": args["id"], "$options": "i"}
-    if args.get("code"):
-        q["code"] = {"$regex": args["code"], "$options": "i"}
-    if args.get("name"):
-        q["name"] = {"$regex": args["name"], "$options": "i"}
-    if args.get("rarity"):
-        q["rarity"] = {"$regex": args["rarity"], "$options": "i"}
-    if args.get("type"):
-        q["type"] = {"$regex": args["type"], "$options": "i"}
-    if args.get("color"):
-        q["color"] = {"$regex": args["color"], "$options": "i"}
-    if args.get("bloomLevel"):
-        q["bloomLevel"] = {
-            "$regex": args["bloomLevel"],
-            "$options": "i"
-        }
-    if args.get("tag"):
-        q["tags"] = {
-            "$regex": args["tag"],
-            "$options": "i"
-        }
-    if args.get("set"):
-        q["$or"] = [
-            {
-                "variants.set.set_code": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            },
-            {
-                "variants.set.name": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            }
-        ]
-    return q
+    return _build_filters(args, {
+        "id": ("id", "regex"), "code": ("code", "regex"),
+        "name": ("name", "regex"), "rarity": ("rarity", "regex"),
+        "type": ("type", "regex"), "color": ("color", "regex"),
+        "bloomLevel": ("bloomLevel", "regex"), "tag": ("tags", "array"),
+    }, ["variants.set.set_code", "variants.set.name"])
+
+
 def apply_lorcana_filters(args):
-    q = {}
-    if args.get("id"):
-        q["id"] = {"$regex": args["id"], "$options": "i"}
-    if args.get("code"):
-        q["code"] = {"$regex": args["code"], "$options": "i"}
-    if args.get("name"):
-        q["name"] = {"$regex": args["name"], "$options": "i"}
-    if args.get("rarity"):
-        q["rarity"] = {"$regex": args["rarity"], "$options": "i"}
-    if args.get("type"):
-        q["type"] = {"$regex": args["type"], "$options": "i"}
-    if args.get("color"):
-        q["color"] = {"$regex": args["color"], "$options": "i"}
-    if args.get("classification"):
-        q["classifications"] = {
-            "$regex": args["classification"],
-            "$options": "i"
-        }
-    if args.get("franchise"):
-        q["franchise"] = {
-            "$regex": args["franchise"],
-            "$options": "i"
-        }
-    if args.get("set"):
-        q["$or"] = [
-            {
-                "variants.set.set_code": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            },
-            {
-                "variants.set.name": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            }
-        ]
-    return q
+    return _build_filters(args, {
+        "id": ("id", "regex"), "code": ("code", "regex"),
+        "name": ("name", "regex"), "rarity": ("rarity", "regex"),
+        "type": ("type", "regex"), "color": ("color", "regex"),
+        "classification": ("classifications", "array"),
+        "franchise": ("franchise", "regex"),
+    }, ["variants.set.set_code", "variants.set.name"])
+
+
 def apply_onepiece_filters(args):
-    q = {}
-    if args.get("id"):
-        q["id"] = {"$regex": args["id"], "$options": "i"}
-    if args.get("code"):
-        q["code"] = {"$regex": args["code"], "$options": "i"}
-    if args.get("name"):
-        q["name"] = {"$regex": args["name"], "$options": "i"}
-    if args.get("rarity"):
-        q["rarity"] = {"$regex": args["rarity"], "$options": "i"}
-    if args.get("type"):
-        q["type"] = {"$regex": args["type"], "$options": "i"}
-    if args.get("color"):
-        q["color"] = {"$regex": args["color"], "$options": "i"}
-    if args.get("cost"):
-        q["cost"] = args["cost"]
-    if args.get("power"):
-        q["power"] = args["power"]
-    if args.get("family"):
-        q["family"] = {"$regex": args["family"], "$options": "i"}
-    if args.get("set"):
-        q["$or"] = [
-            {
-                "variants.set.set_code": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            },
-            {
-                "variants.set.name": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            }
-        ]
-    return q
+    return _build_filters(args, {
+        "id": ("id", "regex"), "code": ("code", "regex"),
+        "name": ("name", "regex"), "rarity": ("rarity", "regex"),
+        "type": ("type", "regex"), "color": ("color", "regex"),
+        "cost": ("cost", "exact"), "power": ("power", "exact"),
+        "family": ("family", "regex"),
+    }, ["variants.set.set_code", "variants.set.name"])
+
+
 def apply_pokemon_filters(args):
-    q = {}
-    if args.get("id"):
-        q["id"] = {"$regex": args["id"], "$options": "i"}
-    if args.get("code"):
-        q["code"] = {"$regex": args["code"], "$options": "i"}
-    if args.get("name"):
-        q["name"] = {"$regex": args["name"], "$options": "i"}
-    if args.get("rarity"):
-        q["rarity"] = {"$regex": args["rarity"], "$options": "i"}
-    if args.get("pokemonType"):
-        q["pokemonType"] = {"$regex": args["pokemonType"], "$options": "i"}
-    if args.get("set"):
-        q["$or"] = [
-            {
-                "variants.set.set_code": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            },
-            {
-                "variants.set.name": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            }
-        ]
-    if args.get("stage"):
-        q["stage"] = {"$regex": args["stage"], "$options": "i"}
-    if args.get("illustrator"):
-        q["illustrator"] = {
-            "$regex": args["illustrator"],
-            "$options": "i"
-        }
-    if args.get("hp"):
-        q["hp"] = int(args["hp"])
-    if args.get("category"):
-        q["category"] = {
-            "$regex": args["category"],
-            "$options": "i"
-        }
+    q = _build_filters(args, {
+        "id": ("id", "regex"), "code": ("code", "regex"),
+        "name": ("name", "regex"), "rarity": ("rarity", "regex"),
+        "pokemonType": ("pokemonType", "regex"),
+        "stage": ("stage", "regex"), "illustrator": ("illustrator", "regex"),
+        "category": ("category", "regex"),
+    }, ["variants.set.set_code", "variants.set.name"])
+
+    hp = _values(args, "hp")
+    if hp:
+        q["hp"] = int(hp[0]) if len(hp) == 1 else {"$in": [int(v) for v in hp]}
     return q
+
+
 def apply_riftbound_filters(args):
-    q = {}
-    if args.get("id"):
-        q["id"] = {"$regex": args["id"], "$options": "i"}
-    if args.get("code"):
-        q["code"] = {"$regex": args["code"], "$options": "i"}
-    if args.get("name"):
-        q["name"] = {"$regex": args["name"], "$options": "i"}
-    if args.get("rarity"):
-        q["rarity"] = {"$regex": args["rarity"], "$options": "i"}
-    if args.get("type"):
-        q["type"] = {"$regex": args["type"], "$options": "i"}
-    if args.get("super"):
-        q["super"] = {"$regex": args["super"], "$options": "i"}
-    if args.get("energy"):
-        q["energy"] = args["energy"]
-    if args.get("power"):
-        q["power"] = args["power"]
-    if args.get("might"):
-        q["might"] = args["might"]
-    if args.get("color"):
-        q["colors.name"] = {"$regex": args["color"], "$options": "i"}
-    if args.get("artist"):
-        q["artist"] = {"$regex": args["artist"], "$options": "i"}
-    if args.get("set"):
-        q["$or"] = [
-            {"variants.set.set_code": {"$regex": args["set"], "$options": "i"}},
-            {"variants.set.name": {"$regex": args["set"], "$options": "i"}}
-        ]
-    return q
+    return _build_filters(args, {
+        "id": ("id", "regex"), "code": ("code", "regex"),
+        "name": ("name", "regex"), "rarity": ("rarity", "regex"),
+        "type": ("type", "regex"), "super": ("super", "regex"),
+        "energy": ("energy", "exact"), "power": ("power", "exact"),
+        "might": ("might", "exact"), "color": ("colors.name", "array"),
+        "artist": ("artist", "regex"),
+    }, ["variants.set.set_code", "variants.set.name"])
+
+
 def apply_sorcery_filters(args):
-    q = {}
-    if args.get("id"):
-        q["id"] = {"$regex": args["id"], "$options": "i"}
-    if args.get("name"):
-        q["name"] = {"$regex": args["name"], "$options": "i"}
-    if args.get("elements"):
-        q["elements"] = {"$regex": args["elements"], "$options": "i"}
-    if args.get("subTypes"):
-        q["subTypes"] = {"$regex": args["subTypes"], "$options": "i"}
-    if args.get("rarity"):
-        q["guardian.rarity"] = {"$regex": args["rarity"], "$options": "i"}
-    if args.get("type"):
-        q["guardian.type"] = {"$regex": args["type"], "$options": "i"}
-    if args.get("category"):
-        q["guardian.category"] = {"$regex": args["category"], "$options": "i"}
-    if args.get("slot"):
-        q["guardian.slot"] = {"$regex": args["slot"], "$options": "i"}
-    if args.get("set"):
-        q["$or"] = [
-            {
-                "variants.set.set_code": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            },
-            {
-                "variants.set.name": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            }
-        ]
-    return q
+    return _build_filters(args, {
+        "id": ("id", "regex"), "name": ("name", "regex"),
+        "elements": ("elements", "array"), "subTypes": ("subTypes", "array"),
+        "rarity": ("guardian.rarity", "regex"),
+        "type": ("guardian.type", "regex"),
+        "category": ("guardian.category", "regex"),
+        "slot": ("guardian.slot", "regex"),
+    }, ["variants.set.set_code", "variants.set.name"])
+
+
 def apply_swu_filters(args):
-    q = {}
-    if args.get("id"):
-        q["id"] = {"$regex": args["id"], "$options": "i"}
-    if args.get("name"):
-        q["name"] = {"$regex": args["name"], "$options": "i"}
-    if args.get("type"):
-        q["type"] = {"$regex": args["type"], "$options": "i"}
-    if args.get("rarity"):
-        q["rarity"] = {"$regex": args["rarity"], "$options": "i"}
-    if args.get("artist"):
-        q["artist"] = {"$regex": args["artist"], "$options": "i"}
-    if args.get("set"):
-        q["$or"] = [
-            {
-                "variants.set.set_code": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            },
-            {
-                "variants.set.set_name": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            }
-        ]
-    return q
+    return _build_filters(args, {
+        "id": ("id", "regex"), "name": ("name", "regex"),
+        "type": ("type", "regex"), "rarity": ("rarity", "regex"),
+        "artist": ("artist", "regex"),
+    }, ["variants.set.set_code", "variants.set.set_name"])
+
+
 def apply_unionarena_filters(args):
-    q = {}
-    if args.get("id"):
-        q["id"] = {"$regex": args["id"], "$options": "i"}
-    if args.get("code"):
-        q["code"] = {"$regex": args["code"], "$options": "i"}
-    if args.get("name"):
-        q["name"] = {"$regex": args["name"], "$options": "i"}
-    if args.get("rarity"):
-        q["rarity"] = {"$regex": args["rarity"], "$options": "i"}
-    if args.get("type"):
-        q["type"] = {"$regex": args["type"], "$options": "i"}
-    if args.get("set"):
-        q["$or"] = [
-            {
-                "variants.set.set_code": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            },
-            {
-                "variants.set.name": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            }
-        ]
-    return q
+    return _build_filters(args, {
+        "id": ("id", "regex"), "code": ("code", "regex"),
+        "name": ("name", "regex"), "rarity": ("rarity", "regex"),
+        "type": ("type", "regex"),
+    }, ["variants.set.set_code", "variants.set.name"])
+
+
 def apply_universus_filters(args):
-    q = {}
-    if args.get("id"):
-        q["id"] = {"$regex": args["id"], "$options": "i"}
-    if args.get("code"):
-        q["code"] = {"$regex": args["code"], "$options": "i"}
-    if args.get("name"):
-        q["name"] = {"$regex": args["name"], "$options": "i"}
-    if args.get("rarity"):
-        q["rarity"] = {"$regex": args["rarity"], "$options": "i"}
-    if args.get("type"):
-        q["type"] = {"$regex": args["type"], "$options": "i"}
-    if args.get("category"):
-        q["category"] = {"$regex": args["category"], "$options": "i"}
-    if args.get("set"):
-        q["$or"] = [
-            {
-                "variants.set.set_code": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            },
-            {
-                "variants.set.name": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            }
-        ]
-    return q
+    return _build_filters(args, {
+        "id": ("id", "regex"), "code": ("code", "regex"),
+        "name": ("name", "regex"), "rarity": ("rarity", "regex"),
+        "type": ("type", "regex"), "category": ("category", "regex"),
+    }, ["variants.set.set_code", "variants.set.name"])
+
+
 def apply_vanguard_filters(args):
-    q = {}
-    if args.get("id"):
-        q["id"] = {"$regex": args["id"], "$options": "i"}
-    if args.get("code"):
-        q["code"] = {"$regex": args["code"], "$options": "i"}
-    if args.get("name"):
-        q["name"] = {"$regex": args["name"], "$options": "i"}
-    if args.get("rarity"):
-        q["rarity"] = {"$regex": args["rarity"], "$options": "i"}
-    if args.get("type"):
-        q["type"] = {"$regex": args["type"], "$options": "i"}
-    if args.get("nation"):
-        q["nation"] = {"$regex": args["nation"], "$options": "i"}
-    if args.get("grade"):
-        q["grade"] = args["grade"]
-    if args.get("set"):
-        q["$or"] = [
-            {"variants.set.set_code": {"$regex": args["set"], "$options": "i"}},
-            {"variants.set.name": {"$regex": args["set"], "$options": "i"}}
-        ]
+    q = _build_filters(args, {
+        "id": ("id", "regex"), "code": ("code", "regex"),
+        "name": ("name", "regex"), "rarity": ("rarity", "regex"),
+        "type": ("type", "regex"), "nation": ("nation", "regex"),
+        "grade": ("grade", "exact"),
+    }, ["variants.set.set_code", "variants.set.name"])
     return q
+
+
 def apply_yugioh_filters(args):
-    q = {}
-    if args.get("id"):
-        q["id"] = int(args["id"])
-    if args.get("konami_id"):
-        q["konami_id"] = int(args["konami_id"])
-    if args.get("effect"):
-        q["desc"] = {"$regex": args["effect"], "$options": "i"}
-    if args.get("name"):
-        q["name"] = {"$regex": args["name"], "$options": "i"}
-    if args.get("attribute"):
-        q["attribute"] = {"$regex": args["attribute"], "$options": "i"}
-    if args.get("type"):
-        q["type"] = {"$regex": args["type"], "$options": "i"}
-    if args.get("frameType"):
-        q["frameType"] = {"$regex": args["frameType"], "$options": "i"}
-    if args.get("code"):
-        q["variants.variant_code"] = {
-            "$regex": args["code"],
-            "$options": "i"
-        }
-    if args.get("set"):
-        q["$or"] = [
-            {
-                "variants.set.set_code": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            },
-            {
-                "variants.set.set_name": {
-                    "$regex": args["set"],
-                    "$options": "i"
-                }
-            }
-        ]
-    if args.get("rarity"):
-        q["variants.rarity"] = {
-            "$regex": args["rarity"],
-            "$options": "i"
-        }
+    q = _build_filters(args, {
+        "effect": ("desc", "regex"), "name": ("name", "regex"),
+        "attribute": ("attribute", "regex"), "type": ("type", "regex"),
+        "frameType": ("frameType", "regex"),
+        "code": ("variants.variant_code", "regex"),
+        "rarity": ("variants.rarity", "regex"),
+    }, ["variants.set.set_code", "variants.set.set_name"])
+
+    for field in ("id", "konami_id"):
+        values = _values(args, field)
+        if values:
+            numbers = [int(value) for value in values]
+            q[field] = numbers[0] if len(numbers) == 1 else {"$in": numbers}
     return q
