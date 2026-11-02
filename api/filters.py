@@ -1,6 +1,5 @@
 import re
 
-
 def _values(args, key):
     """Lê parâmetros repetidos e valores separados por vírgula."""
     if hasattr(args, "getlist"):
@@ -9,63 +8,59 @@ def _values(args, key):
         raw = args.get(key, [])
         if not isinstance(raw, (list, tuple)):
             raw = [raw]
-
     values = []
     for item in raw:
         if item is None:
             continue
         values.extend(part.strip() for part in str(item).split(",") if part.strip())
-
     return list(dict.fromkeys(values))
 
-
 def _regex(values):
-    pattern = "|".join(f"(?:{value})" for value in values)
+    pattern = "|".join(f"(?:{re.escape(value)})" for value in values)
     return {"$regex": pattern, "$options": "i"}
-
 
 def _build_filters(args, fields, set_fields=None):
     """
     fields: {parametro: (campo_mongo, tipo)}
     tipo: regex, array ou exact
+    operator=or (padrão): qualquer valor pode corresponder.
+    operator=and: todos os valores precisam corresponder.
     """
     q = {}
-    and_conditions = []
-
+    operator = str(args.get("operator", "or")).strip().lower()
+    use_and = operator == "and"
     for param, (field, kind) in fields.items():
         values = _values(args, param)
-        all_values = _values(args, f"{param}__all")
-
-        if not values and not all_values:
+        if not values:
             continue
-
-        if kind == "array":
-            if values:
+        if kind == "regex":
+            if use_and:
+                q.setdefault("$and", []).extend(
+                    {field: {"$regex": re.escape(value), "$options": "i"}} for value in values
+                )
+            else:
+                q[field] = _regex(values)
+        elif kind == "array":
+            if use_and:
+                q[field] = {"$all": [re.compile(value, re.I) for value in values]}
+            else:
                 q[field] = {"$in": [re.compile(value, re.I) for value in values]}
-            if all_values:
-                and_conditions.append({
-                    field: {"$all": [re.compile(value, re.I) for value in all_values]}
-                })
-        elif all_values:
-            # __all é reservado para campos de array.
-            continue
         elif kind == "exact":
-            q[field] = values[0] if len(values) == 1 else {"$in": values}
-        else:
-            q[field] = _regex(values)
-
+            if use_and:
+                q.setdefault("$and", []).extend({field: value} for value in values)
+            else:
+                q[field] = values[0] if len(values) == 1 else {"$in": values}
     if set_fields:
         set_values = _values(args, "set")
         if set_values:
-            and_conditions.append({
-                "$or": [{field: _regex(set_values)} for field in set_fields]
-            })
-
-    if and_conditions:
-        q["$and"] = and_conditions
-
+            if use_and:
+                q.setdefault("$and", []).extend(
+                    {"$or": [{field: {"$regex": re.escape(value), "$options": "i"}} for field in set_fields]}
+                    for value in set_values
+                )
+            else:
+                q["$or"] = [{field: _regex(set_values)} for field in set_fields]
     return q
-
 
 def apply_altered_filters(args):
     return _build_filters(args, {
@@ -77,8 +72,6 @@ def apply_altered_filters(args):
         "illustrator": ("illustrator", "regex"),
     }, ["variants.set.set_code", "variants.set.set_name",
         "variants.set.set_internal_code"])
-
-
 def apply_cyberpunk_filters(args):
     return _build_filters(args, {
         "id": ("id", "regex"), "code": ("code", "regex"),
@@ -87,8 +80,6 @@ def apply_cyberpunk_filters(args):
         "artist": ("artist", "regex"),
         "classification": ("classifications", "array"),
     }, ["variants.set.code", "variants.set.name"])
-
-
 def apply_dbs_filters(args):
     return _build_filters(args, {
         "id": ("id", "regex"), "code": ("code", "regex"),
@@ -97,8 +88,6 @@ def apply_dbs_filters(args):
         "cost": ("cost", "exact"), "power": ("power", "exact"),
         "characterTraits": ("characterTraits", "regex"),
     }, ["variants.set.set_code", "variants.set.name"])
-
-
 def apply_digimon_filters(args):
     return _build_filters(args, {
         "id": ("id", "regex"), "code": ("code", "regex"),
@@ -106,15 +95,11 @@ def apply_digimon_filters(args):
         "type": ("type", "regex"), "color": ("color", "regex"),
         "artist": ("artist", "regex"),
     }, ["variants.set.set_code", "variants.set.name"])
-
-
 def apply_fab_filters(args):
     return _build_filters(args, {
         "name": ("name", "regex"), "color": ("color", "regex"),
         "type": ("types", "array"), "set": ("variants.set.set_code", "regex"),
     })
-
-
 def apply_godzilla_filters(args):
     return _build_filters(args, {
         "id": ("id", "regex"), "code": ("code", "regex"),
@@ -122,8 +107,6 @@ def apply_godzilla_filters(args):
         "type": ("type", "regex"), "color": ("color", "regex"),
         "grade": ("grade", "regex"),
     }, ["variants.set.set_code", "variants.set.name"])
-
-
 def apply_grandarchive_filters(args):
     return _build_filters(args, {
         "id": ("id", "regex"), "code": ("code", "regex"),
@@ -131,8 +114,6 @@ def apply_grandarchive_filters(args):
         "element": ("element", "regex"), "type": ("types", "array"),
         "subtype": ("subtypes", "array"), "class": ("classes", "array"),
     }, ["variants.set.set_code", "variants.set.name"])
-
-
 def apply_gundam_filters(args):
     return _build_filters(args, {
         "id": ("id", "regex"), "code": ("code", "regex"),
@@ -141,8 +122,6 @@ def apply_gundam_filters(args):
         "zone": ("zone", "regex"), "trait": ("trait", "regex"),
         "source_title": ("source_title", "regex"),
     }, ["variants.set.set_code", "variants.set.name"])
-
-
 def apply_hololive_filters(args):
     return _build_filters(args, {
         "id": ("id", "regex"), "code": ("code", "regex"),
@@ -150,8 +129,6 @@ def apply_hololive_filters(args):
         "type": ("type", "regex"), "color": ("color", "regex"),
         "bloomLevel": ("bloomLevel", "regex"), "tag": ("tags", "array"),
     }, ["variants.set.set_code", "variants.set.name"])
-
-
 def apply_lorcana_filters(args):
     return _build_filters(args, {
         "id": ("id", "regex"), "code": ("code", "regex"),
@@ -160,8 +137,6 @@ def apply_lorcana_filters(args):
         "classification": ("classifications", "array"),
         "franchise": ("franchise", "regex"),
     }, ["variants.set.set_code", "variants.set.name"])
-
-
 def apply_onepiece_filters(args):
     return _build_filters(args, {
         "id": ("id", "regex"), "code": ("code", "regex"),
@@ -170,8 +145,6 @@ def apply_onepiece_filters(args):
         "cost": ("cost", "exact"), "power": ("power", "exact"),
         "family": ("family", "regex"),
     }, ["variants.set.set_code", "variants.set.name"])
-
-
 def apply_pokemon_filters(args):
     q = _build_filters(args, {
         "id": ("id", "regex"), "code": ("code", "regex"),
@@ -180,13 +153,10 @@ def apply_pokemon_filters(args):
         "stage": ("stage", "regex"), "illustrator": ("illustrator", "regex"),
         "category": ("category", "regex"),
     }, ["variants.set.set_code", "variants.set.name"])
-
     hp = _values(args, "hp")
     if hp:
         q["hp"] = int(hp[0]) if len(hp) == 1 else {"$in": [int(v) for v in hp]}
     return q
-
-
 def apply_riftbound_filters(args):
     return _build_filters(args, {
         "id": ("id", "regex"), "code": ("code", "regex"),
@@ -196,8 +166,6 @@ def apply_riftbound_filters(args):
         "might": ("might", "exact"), "color": ("colors.name", "array"),
         "artist": ("artist", "regex"),
     }, ["variants.set.set_code", "variants.set.name"])
-
-
 def apply_sorcery_filters(args):
     return _build_filters(args, {
         "id": ("id", "regex"), "name": ("name", "regex"),
@@ -207,32 +175,24 @@ def apply_sorcery_filters(args):
         "category": ("guardian.category", "regex"),
         "slot": ("guardian.slot", "regex"),
     }, ["variants.set.set_code", "variants.set.name"])
-
-
 def apply_swu_filters(args):
     return _build_filters(args, {
         "id": ("id", "regex"), "name": ("name", "regex"),
         "type": ("type", "regex"), "rarity": ("rarity", "regex"),
         "artist": ("artist", "regex"),
     }, ["variants.set.set_code", "variants.set.set_name"])
-
-
 def apply_unionarena_filters(args):
     return _build_filters(args, {
         "id": ("id", "regex"), "code": ("code", "regex"),
         "name": ("name", "regex"), "rarity": ("rarity", "regex"),
         "type": ("type", "regex"),
     }, ["variants.set.set_code", "variants.set.name"])
-
-
 def apply_universus_filters(args):
     return _build_filters(args, {
         "id": ("id", "regex"), "code": ("code", "regex"),
         "name": ("name", "regex"), "rarity": ("rarity", "regex"),
         "type": ("type", "regex"), "category": ("category", "regex"),
     }, ["variants.set.set_code", "variants.set.name"])
-
-
 def apply_vanguard_filters(args):
     q = _build_filters(args, {
         "id": ("id", "regex"), "code": ("code", "regex"),
@@ -241,8 +201,6 @@ def apply_vanguard_filters(args):
         "grade": ("grade", "exact"),
     }, ["variants.set.set_code", "variants.set.name"])
     return q
-
-
 def apply_yugioh_filters(args):
     q = _build_filters(args, {
         "effect": ("desc", "regex"), "name": ("name", "regex"),
@@ -251,7 +209,6 @@ def apply_yugioh_filters(args):
         "code": ("variants.variant_code", "regex"),
         "rarity": ("variants.rarity", "regex"),
     }, ["variants.set.set_code", "variants.set.set_name"])
-
     for field in ("id", "konami_id"):
         values = _values(args, field)
         if values:
